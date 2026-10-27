@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>智能体窗口方向</title>
+<style>
+/* Semantic tokens copied from packages/ui/src/styles (light / .dark). */
+:root {
+  color-scheme: light;
+  --canvas: oklch(0.955 0 0);
+  --background: oklch(1 0 0);
+  --background-subtle: oklch(0 0 0 / 0.02);
+  --foreground: oklch(0.213 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --foreground-tertiary: oklch(0.669 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --border: oklch(0 0 0 / 0.1);
+  --border-subtle: oklch(0 0 0 / 0.06);
+  --border-strong: oklch(0 0 0 / 0.2);
+  --muted: oklch(0 0 0 / 0.05);
+  --accent: oklch(0 0 0 / 0.05);
+  --primary: oklch(0.77 0.208 146);
+  --destructive: oklch(0.64 0.208 25);
+  --emphasis: oklch(0.2 0 0);
+  --emphasis-foreground: oklch(1 0 0);
+  --success: oklch(0.72 0.192 149);
+  --info: oklch(0.63 0.186 260);
+  --warning: oklch(0.77 0.165 71);
+  --warning-subtle: oklch(0.99 0.022 95);
+  --warning-subtle-foreground: oklch(0.47 0.124 47);
+  --warning-border: oklch(0.93 0.114 96);
+  --success-subtle: oklch(0.98 0.016 156);
+  --success-subtle-foreground: oklch(0.45 0.107 151);
+  --reference: #cfe1ff;
+  --reference-foreground: #000;
+  --window-shadow: 0 12px 32px oklch(0 0 0 / 0.12), 0 1px 3px oklch(0 0 0 / 0.08);
+  --anno: oklch(0.6 0.22 350);
+  --desk: oklch(0.86 0.02 250);
+  --font: Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: oklch(0.16 0 0);
+  --background: oklch(0.209 0 0);
+  --background-subtle: oklch(1 0 0 / 0.02);
+  --foreground: oklch(0.931 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --foreground-tertiary: oklch(0.559 0 0);
+  --card: oklch(0.2 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.27 0 0);
+  --border: oklch(1 0 0 / 0.1);
+  --border-subtle: oklch(1 0 0 / 0.07);
+  --border-strong: oklch(1 0 0 / 0.2);
+  --muted: oklch(1 0 0 / 0.1);
+  --accent: oklch(1 0 0 / 0.1);
+  --emphasis: oklch(0.97 0 0);
+  --emphasis-foreground: oklch(0.2 0 0);
+  --success: oklch(0.8 0.182 152);
+  --info: oklch(0.72 0.143 254);
+  --warning: oklch(0.83 0.164 84);
+  --warning-subtle: oklch(0.41 0.104 46);
+  --warning-subtle-foreground: oklch(0.96 0.057 96);
+  --warning-border: oklch(0.55 0.145 49);
+  --success-subtle: oklch(0.39 0.089 153);
+  --success-subtle-foreground: oklch(0.96 0.041 157);
+  --reference: #404040;
+  --reference-foreground: #fff;
+  --window-shadow: 0 12px 32px oklch(0 0 0 / 0.5), 0 1px 3px oklch(0 0 0 / 0.4);
+  --desk: oklch(0.3 0.03 255);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--canvas); color: var(--foreground); font-family: var(--font); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+.ic { width: 16px; height: 16px; flex-shrink: 0; }
+.ic.s12 { width: 12px; height: 12px; } .ic.s14 { width: 14px; height: 14px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.caret::after { content: ""; display: inline-block; width: 7px; height: 14px; margin-left: 2px; vertical-align: -2px; background: var(--foreground); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .spin, .caret::after, .live::after { animation: none !important; } }
+
+/* ── Document chrome ── */
+.page { max-width: 1280px; margin: 0 auto; padding: 32px 24px 96px; }
+.doc-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; }
+.doc-head h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; }
+.doc-head p { margin: 4px 0 0; color: var(--muted-foreground); }
+.doc-head a { color: var(--info); }
+.theme-toggle { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--muted); }
+.theme-toggle button { border: 0; background: transparent; padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--muted-foreground); cursor: pointer; }
+.theme-toggle button[aria-pressed="true"] { background: var(--background); color: var(--foreground); box-shadow: 0 1px 2px oklch(0 0 0 / 0.1); }
+.shared { margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.shared div { background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--muted-foreground); line-height: 18px; }
+.shared b { display: block; color: var(--foreground); font-size: 13px; margin-bottom: 2px; }
+section.dir { margin-top: 56px; }
+.dir-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding-bottom: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.dir-head .letter { font-family: var(--mono); font-size: 12px; color: var(--muted-foreground); }
+.dir-head h2 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; }
+.dir-head .rec { font-size: 11px; font-weight: 600; color: var(--success-subtle-foreground); background: var(--success-subtle); border-radius: 999px; padding: 1px 8px; }
+.dir-head p { flex-basis: 100%; margin: 2px 0 0; color: var(--muted-foreground); font-size: 13px; max-width: 860px; }
+.boards { display: flex; flex-wrap: wrap; gap: 36px 28px; align-items: flex-start; }
+figure.board { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+figcaption { max-width: 480px; font-size: 12px; line-height: 18px; color: var(--muted-foreground); }
+figcaption b { display: block; color: var(--foreground); font-size: 13px; margin-bottom: 2px; }
+.m { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--anno); color: #fff; font-size: 10px; font-weight: 600; font-style: normal; line-height: 1; vertical-align: 1px; margin-right: 4px; }
+.pin-m { position: relative; }
+.pin-m > .m { position: absolute; top: -8px; right: -8px; z-index: 5; box-shadow: 0 0 0 2px var(--canvas); margin: 0; }
+
+/* ── Shared window shell: no system title bar, one background ── */
+.w { position: relative; display: flex; flex-direction: column; overflow: hidden; background: var(--popover); color: var(--foreground); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--window-shadow); }
+.hdr { height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; }
+/* macOS traffic lights stay, positioned inside our header (trafficLightPosition); 14 + 52 + 12 = 78px reserved */
+.traffic { display: flex; gap: 8px; width: 52px; margin-right: 4px; flex-shrink: 0; }
+.traffic i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; box-shadow: inset 0 0 0 0.5px oklch(0 0 0 / 0.15); }
+.traffic i:nth-child(2) { background: #febc2e; } .traffic i:nth-child(3) { background: #28c840; }
+.bar-q .traffic { margin-right: 2px; }
+.who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.who .nm { font-weight: 500; white-space: nowrap; }
+.who .ss { color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; background: var(--muted); font-size: 13px; line-height: 1; flex-shrink: 0; }
+.picker { display: inline-flex; align-items: center; gap: 6px; height: 30px; margin-left: -4px; padding: 0 6px 0 4px; border: 0; border-radius: 8px; background: transparent; font-size: 13px; font-weight: 500; }
+.picker:hover { background: var(--accent); }
+.picker .ic { color: var(--muted-foreground); }
+.ctl { display: flex; gap: 2px; }
+.ib { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); }
+.ib:hover { background: var(--accent); color: var(--foreground); }
+.ib[disabled] > svg { opacity: 0.4; }
+.ib.close:hover { background: var(--destructive); color: #fff; }
+.ctl-sep { width: 1px; height: 16px; margin: 0 4px; background: var(--border); align-self: center; }
+.hdr-specs { width: 480px; display: flex; flex-direction: column; gap: 12px; }
+.hair { height: 1px; background: var(--border-subtle); margin: 0 16px; flex-shrink: 0; }
+.pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+.pill.warn { background: var(--warning-subtle); color: var(--warning-subtle-foreground); }
+
+/* Selected text carried in as a reference (product --reference token) */
+.q { font-size: 13px; line-height: 22px; color: var(--foreground); }
+.q.mono { font-family: var(--mono); font-size: 12px; line-height: 21px; }
+.q mark { background: var(--reference); color: var(--reference-foreground); padding: 2px 3px; border-radius: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.q.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q.two { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.meta { font-size: 12px; color: var(--muted-foreground); display: flex; align-items: center; gap: 6px; }
+.meta a { color: var(--muted-foreground); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--border-strong); }
+
+.chip { height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: transparent; font-size: 12px; color: var(--foreground); }
+.chip .ic { color: var(--muted-foreground); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 0 10px; border-radius: 8px; font-size: 13px; border: 1px solid transparent; white-space: nowrap; }
+.btn.outline { border-color: var(--border); background: transparent; color: var(--foreground); }
+.btn.emph { background: var(--emphasis); color: var(--emphasis-foreground); }
+.kbd { display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border-radius: 4px; font-size: 11px; background: var(--muted); color: var(--muted-foreground); }
+.btn.emph .kbd { background: color-mix(in oklch, currentColor 16%, transparent); color: inherit; }
+.gbtn { height: 26px; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); font-size: 12px; }
+.gbtn.icon { width: 26px; padding: 0; justify-content: center; }
+.send { width: 30px; height: 30px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--emphasis); color: var(--emphasis-foreground); flex-shrink: 0; }
+.send[disabled] { background: var(--muted); color: var(--foreground-tertiary); }
+.send .sq { width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
+.input-line { flex: 1; min-width: 0; min-height: 30px; display: flex; align-items: center; padding: 0 2px; font-size: 14px; color: var(--foreground-tertiary); }
+.cursor { display: inline-block; width: 1.5px; height: 18px; vertical-align: -3px; background: var(--foreground); }
+.code { font-family: var(--mono); font-size: 12.5px; padding: 1px 4px; border-radius: 4px; background: var(--muted); }
+
+/* Main-window-style step rows (A, C) */
+.steps { display: flex; flex-direction: column; gap: 1px; margin: 0 -6px; }
+.step { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 6px; border-radius: 6px; font-size: 13px; min-width: 0; }
+.step .st.ok { color: var(--success); display: inline-flex; } .step .st.run { color: var(--info); display: inline-flex; } .step .st.wait { color: var(--warning); display: inline-flex; }
+.step .tool { font-weight: 500; flex-shrink: 0; }
+.step .target { color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; }
+.step .lbl { color: var(--muted-foreground); font-size: 12px; flex-shrink: 0; }
+.stream { flex: 1; min-height: 0; overflow: hidden; padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 22px; }
+.stream p { margin: 0; }
+.ask { display: flex; flex-direction: column; gap: 6px; }
+.ask .t { font-size: 15px; font-weight: 500; line-height: 22px; }
+
+/* Main-window approval card (A, C) */
+.approval { margin: 0 12px 12px; border: 1px solid var(--border-strong); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.ap-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; font-size: 14px; font-weight: 600; }
+.ap-head .sub { font-weight: 400; color: var(--muted-foreground); font-size: 12px; font-family: var(--mono); }
+.diff { border-radius: 10px; border: 1px solid var(--border-subtle); padding: 6px 0; font-family: var(--mono); font-size: 11.5px; line-height: 19px; overflow: hidden; }
+.diff .ln { padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diff .add { background: var(--success-subtle); color: var(--success-subtle-foreground); }
+.diff .ctx { color: var(--muted-foreground); }
+.reason { font-size: 12px; color: var(--muted-foreground); padding: 0 4px; }
+.reason .ta { margin-top: 4px; height: 32px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; color: var(--foreground-tertiary); font-size: 12px; }
+.ap-btns { display: flex; justify-content: flex-end; gap: 8px; padding: 0 4px 2px; }
+
+/* ── Direction A: command bar ── */
+.bar { width: 560px; }
+.bar-q { display: flex; align-items: center; gap: 10px; height: 40px; padding: 4px 14px 0 14px; }
+.bar-q .q { flex: 1; min-width: 0; }
+.bar-in { padding: 10px 16px 6px; font-size: 18px; line-height: 28px; font-weight: 500; }
+.bar-foot { display: flex; align-items: center; gap: 6px; padding: 6px 10px 10px 12px; }
+.bar-foot .grow { flex: 1; }
+.unfold { width: 560px; height: 620px; }
+.replay { align-self: flex-start; }
+.morph { transition: height 380ms cubic-bezier(0.2, 0.8, 0.2, 1); height: 150px; }
+.morph.open { height: 620px; }
+.morph .after { opacity: 0; transition: opacity 200ms 220ms; }
+.morph.open .after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .morph, .morph .after { transition: none; } }
+
+/* ── Direction B: run sheet ── */
+.sheet { width: 480px; height: 660px; }
+.brief { padding: 2px 18px 16px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.brief .title { font-size: 17px; line-height: 26px; font-weight: 500; }
+.brief .title.ph { color: var(--foreground-tertiary); font-weight: 400; }
+.brief .bbar { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.brief .bbar .grow { flex: 1; }
+.brief.compact { gap: 6px; padding-bottom: 14px; }
+.brief.compact .title { font-size: 15px; line-height: 22px; }
+.rail { flex: 1; min-height: 0; overflow: hidden; padding: 14px 18px 8px; display: flex; flex-direction: column; }
+.node { position: relative; padding: 3px 0 9px 28px; font-size: 13px; }
+.node::before { content: ""; position: absolute; left: 8px; top: 0; bottom: 0; width: 1.5px; background: var(--border); }
+.node:first-child::before { top: 12px; }
+.node.end::before { bottom: auto; height: 12px; }
+.node .dot { position: absolute; left: 0; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--popover); display: flex; align-items: center; justify-content: center; }
+.node .dot.ok { color: var(--success); }
+.node .dot.run { color: var(--info); }
+.node .dot.wait { color: var(--warning-subtle-foreground); background: var(--warning-subtle); }
+.node .dot.say::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--foreground-tertiary); }
+.node .row { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.node .tool { font-weight: 500; }
+.node .tgt { font-family: var(--mono); font-size: 12px; color: var(--muted-foreground); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node .dur { font-size: 11px; color: var(--foreground-tertiary); font-variant-numeric: tabular-nums; }
+.node .wl { font-size: 12px; font-weight: 500; color: var(--warning-subtle-foreground); }
+.node .say-text { font-size: 14px; line-height: 22px; color: var(--foreground); }
+.live { position: relative; }
+.live::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 1.5px solid var(--info); opacity: 0; animation: ping 1.6s ease-out infinite; }
+@keyframes ping { 0% { transform: scale(0.7); opacity: 0.7; } 100% { transform: scale(1.3); opacity: 0; } }
+.gate { margin-top: 8px; border: 1px solid var(--border-strong); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.gate .reason, .gate .ap-btns { padding: 0; }
+.foot { flex-shrink: 0; padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.foot .status { display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 12px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.foot .status .ic { color: var(--info); }
+.foot .status.warn .ic { color: var(--warning); }
+.foot .inrow { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 4px 4px 4px 10px; }
+.foot .inrow.off { border-style: dashed; }
+.summary { display: flex; align-items: center; gap: 8px; height: 30px; margin: 10px 12px 0; padding: 0 6px; border-radius: 8px; font-size: 12px; color: var(--muted-foreground); }
+.summary .ic.ok { color: var(--success); }
+.result { flex: 1; min-height: 0; overflow: hidden; padding: 8px 18px 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 22px; }
+.result .eyebrow { font-size: 12px; color: var(--muted-foreground); }
+.result p { margin: 0; }
+.result ul { margin: 0; padding-left: 18px; }
+.result .acts { display: flex; gap: 2px; margin-left: -8px; }
+.empty-rail { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 48px; text-align: center; color: var(--foreground-tertiary); font-size: 12px; line-height: 18px; }
+
+/* ── Direction C: edge companion ── */
+.desk { position: relative; width: 980px; height: 600px; border-radius: 14px; overflow: hidden; background: var(--desk); border: 1px solid var(--border); }
+.menubar { height: 24px; background: color-mix(in oklch, var(--popover) 75%, transparent); display: flex; align-items: center; gap: 16px; padding: 0 14px; font-size: 12px; }
+.appwin { position: absolute; left: 40px; top: 52px; width: 520px; height: 420px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--window-shadow); overflow: hidden; }
+.appwin .ab { height: 30px; display: flex; align-items: center; padding: 0 12px; font-size: 12px; color: var(--muted-foreground); background: var(--muted); }
+.appwin .ac { padding: 20px 24px; font-size: 14px; line-height: 24px; color: var(--card-foreground); }
+.appwin mark { background: oklch(0.62 0.17 255 / 0.3); color: inherit; }
+.dock { position: absolute; right: 0; top: 24px; bottom: 0; width: 360px; border-radius: 12px 0 0 12px; border-right: 0; }
+.capsules { position: absolute; right: 12px; top: 40px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.capsule { height: 36px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px 0 7px; border-radius: 999px; background: var(--popover); border: 1px solid var(--border); box-shadow: var(--window-shadow); font-size: 12px; white-space: nowrap; }
+.capsule .nm { font-weight: 500; }
+.capsule .s { color: var(--muted-foreground); display: inline-flex; align-items: center; gap: 4px; }
+.capsule .s.warn { color: var(--warning-subtle-foreground); }
+.capsule .s.ok { color: var(--success); }
+.capsule.warn { border-color: var(--warning-border); }
+
+/* ── Comparison ── */
+table.cmp { width: 100%; border-collapse: collapse; background: var(--background); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 13px; }
+table.cmp th, table.cmp td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); }
+table.cmp thead th { font-size: 12px; font-weight: 500; color: var(--muted-foreground); background: var(--background-subtle); }
+table.cmp tbody th { font-weight: 500; white-space: nowrap; color: var(--muted-foreground); font-size: 12px; }
+table.cmp tr:last-child td, table.cmp tr:last-child th { border-bottom: 0; }
+.verdict { margin-top: 16px; background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 21px; }
+.verdict b { font-weight: 600; }
+.doc-head p.decided { margin-top: 8px; color: var(--foreground); background: var(--success-subtle); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+
+@media (max-width: 640px) {
+  .page { padding: 20px 16px 64px; }
+  .boards > * { max-width: 100%; overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="doc-head">
+    <div>
+      <h1>迷你智能体窗口 · 三个方向</h1>
+      <p>2026-10-27 · 示例内容沿用文档里的两个场景</p>
+      <p class="decided"><b>已定：A 的指令条 + C 的胶囊。</b>唤出时是指令条，发送后展开成对话窗口；最小化或失焦后收成屏幕右下角的胶囊（和方向 C 不同，避开系统通知和最大化窗口的关闭按钮）。定稿见 <a href="./mockups.html">mockups.html</a> 和 <a href="./prd.md">prd.md</a>，本页保留作选择记录。</p>
+    </div>
+    <div class="theme-toggle" role="group" aria-label="主题">
+      <button type="button" data-theme-btn="system">跟随系统</button>
+      <button type="button" data-theme-btn="light">浅色</button>
+      <button type="button" data-theme-btn="dark">深色</button>
+    </div>
+  </header>
+
+  <div class="shared">
+    <div><b>去掉标题栏色带</b>头部由我们绘制，和内容区同一背景。macOS 保留系统红绿灯，嵌在头部左侧并垂直居中（左侧预留 78px），关闭和最小化用系统的；Windows/Linux 没有红绿灯，头部右侧由我们绘制最小化和关闭。头部空白处可以拖动。</div>
+    <div><b>整窗一种背景</b>整个窗口只用 popover 表面。头部、内容区、输入区之间不再用色带区分，只靠间距，必要时加一条细分隔线。</div>
+    <div><b>引用标记</b>选中的文字带着 <code>--reference</code> 底色进入窗口（浅色模式蓝色，深色模式灰色），和来源应用里的选区呼应，也不会和「等待批准」的琥珀色混淆。</div>
+    <div><b>不变的部分</b>颜色、字体都用 Cherry 的 token；产品规则（会话、关窗、审批）和 prd.md 一致，这里只换形态。</div>
+  </div>
+
+  <figure class="board" style="margin-top: 20px">
+    <div class="hdr-specs">
+      <div class="w hdr-spec">
+        <div class="hdr">
+          <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="who"><span class="av">📒</span><span class="nm">单词本</span></div>
+          <div class="ctl">
+            <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+            <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button><button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+          </div>
+        </div>
+      </div>
+      <div class="w hdr-spec">
+        <div class="hdr">
+          <div class="who"><span class="av">📒</span><span class="nm">单词本</span></div>
+          <div class="ctl">
+            <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+            <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button><button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+            <span class="ctl-sep"></span>
+            <button class="ib" aria-label="最小化"><svg class="ic s14" data-i="minus"></svg></button>
+            <button class="ib close" aria-label="关闭"><svg class="ic s14" data-i="x"></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>头部规格（上：macOS，下：Windows / Linux）</b>高 44px。macOS 的红绿灯通过 <code>trafficLightPosition</code> 放到头部内，和头像垂直居中。右侧依次是在主窗口打开、置顶、透明度（沿用现有的透明度滑杆）。下面的三个方向都以 macOS 为例。</figcaption>
+  </figure>
+
+  <!-- ── A ── -->
+  <section class="dir" id="a">
+    <div class="dir-head"><span class="letter">方向 A</span><h2>指令条：先是一条输入栏，发送后向下展开</h2>
+      <p>待输入时窗口只是一条输入栏，像启动器一样轻；发送后向下展开成完整窗口。展开后的内容区和审批卡片沿用主窗口的对话样式。</p></div>
+    <div class="boards">
+      <figure class="board">
+        <div class="w bar">
+          <div class="bar-q">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="q mono one"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div>
+            <span class="meta">Terminal</span>
+          </div>
+          <div class="bar-in">这个报错是什么原因？在项目里查一下<span class="cursor"></span></div>
+          <div class="bar-foot">
+            <span class="chip"><span class="av" style="width:18px;height:18px;font-size:11px">🛠️</span>开发助手<svg class="ic s12" data-i="chevron-down"></svg></span>
+            <span class="chip"><svg class="ic s14" data-i="folder"></svg>my-blog<svg class="ic s12" data-i="chevron-down"></svg></span>
+            <span class="grow"></span>
+            <button class="send" aria-label="发送"><svg class="ic s14" data-i="arrow-up"></svg></button>
+          </div>
+        </div>
+        <figcaption><b>待输入 · 560×150</b>没有单独的头部，红绿灯和引用在同一行；下面是输入和选择。按 Esc 或用红绿灯关闭。引用只显示一行，悬停可看全文。</figcaption>
+      </figure>
+
+      <figure class="board">
+        <div class="w unfold">
+          <div class="hdr">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="who"><span class="av">🛠️</span><span class="nm">开发助手</span><span class="ss">PostList 报错排查</span><span class="pill warn"><svg class="ic s12" data-i="hourglass"></svg>等待批准</span></div>
+            <div class="ctl">
+              <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+              <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button><button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+            </div>
+          </div>
+          <div class="stream">
+            <div class="ask">
+              <div class="t">这个报错是什么原因？在项目里查一下</div>
+              <div class="q mono one"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div>
+            </div>
+            <div class="steps">
+              <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Grep</span><span class="target">"PostList" · src/</span></div>
+              <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Read</span><span class="target">src/components/PostList.tsx</span></div>
+              <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Read</span><span class="target">src/lib/posts.ts</span></div>
+            </div>
+            <p><span class="code">getPosts()</span> 在请求失败时返回 <span class="code">undefined</span>，而 <span class="code">PostList</span> 第 18 行直接调用了 <span class="code">.map</span>。我来给它加上空数组兜底。</p>
+            <div class="steps">
+              <div class="step"><span class="st wait"><svg class="ic s14" data-i="hourglass"></svg></span><span class="tool">Edit</span><span class="target">src/components/PostList.tsx</span><span class="lbl">等待批准</span></div>
+            </div>
+          </div>
+          <div class="approval">
+            <div class="ap-head"><svg class="ic" data-i="file-pen" style="color: var(--muted-foreground)"></svg>Edit <span class="sub">src/components/PostList.tsx</span></div>
+            <div class="diff">
+              <div class="ln ctx">&nbsp;&nbsp;export function PostList({ posts }: Props) {</div>
+              <div class="ln add">+ &nbsp;const items = posts ?? []</div>
+            </div>
+            <div class="ap-btns"><span class="btn outline">拒绝 <span class="kbd">Esc</span></span><span class="btn emph">允许 <span class="kbd">Enter</span></span></div>
+          </div>
+        </div>
+        <figcaption><b>展开后 · 待批准 · 560×620</b>指令条的内容变成第一条消息，头部出现。待批准时审批卡片替换输入区，和主窗口一样。</figcaption>
+      </figure>
+
+      <figure class="board">
+        <div class="w bar morph" id="morph" style="width: 560px">
+          <div class="bar-q">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="q mono one"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div>
+            <span class="meta">Terminal</span>
+          </div>
+          <div class="bar-in">这个报错是什么原因？在项目里查一下</div>
+          <div class="after stream" style="padding-top: 8px">
+            <div class="steps">
+              <div class="step"><span class="st run"><svg class="ic s14 spin" data-i="loader-circle"></svg></span><span class="tool">Grep</span><span class="target">"PostList" · src/</span><span class="lbl">运行中</span></div>
+            </div>
+          </div>
+        </div>
+        <button class="btn outline replay" type="button" id="replay"><svg class="ic s14" data-i="play"></svg>播放展开</button>
+        <figcaption><b>标志：展开动效</b>窗口从输入栏的位置向下长高，内容不跳动，输入的文字原地变成标题。在 macOS 可以用 <code>setBounds(…, animate)</code>；Windows/Linux 要分帧调整窗口大小，成本较高。开启减少动态效果时直接切换。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── B ── -->
+  <section class="dir" id="b">
+    <div class="dir-head"><span class="letter">方向 B</span><h2>任务单：上面写要做什么，下面一步步记录怎么做</h2><span class="rec">推荐</span>
+      <p>不做成聊天。顶部是这次任务（指令 + 引用），下面是一条按顺序排列的步骤轴，审批卡片就放在被拦下的那一步上；完成后步骤收起，结果成为主角。</p></div>
+    <div class="boards">
+      <figure class="board">
+        <div class="w sheet">
+          <div class="hdr">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="who"><button class="picker pin-m"><span class="av">🛠️</span>开发助手<svg class="ic s14" data-i="chevron-down"></svg><i class="m">1</i></button></div>
+            <div class="ctl">
+              <button class="ib" disabled aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+              <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button><button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+            </div>
+          </div>
+          <div class="brief">
+            <div class="title pin-m">这个报错是什么原因？在项目里查一下<span class="cursor"></span><i class="m">2</i></div>
+            <div class="q mono"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark><br><mark>&nbsp;&nbsp;&nbsp;&nbsp;at PostList (src/components/PostList.tsx:18:22)</mark></div>
+            <div class="meta">选中自 Terminal · 3 行 · <a href="#b">移除引用</a></div>
+            <div class="bbar">
+              <span class="chip"><svg class="ic s14" data-i="folder"></svg>my-blog<svg class="ic s12" data-i="chevron-down"></svg></span>
+              <span class="grow"></span>
+              <span class="btn emph">开始 <span class="kbd">Enter</span></span>
+            </div>
+          </div>
+          <div class="hair"></div>
+          <div class="empty-rail">开始后，智能体的每一步会按顺序记在这里。<br>这次任务会保存为「开发助手」的一个会话。</div>
+        </div>
+        <figcaption><b><i class="m">1</i>待输入</b>头部的智能体名就是选择器，开始后锁定，不再显示下拉箭头。<br><i class="m">2</i>输入框在顶部任务标题的位置，按「开始」后，输入的文字原地变成任务标题。</figcaption>
+      </figure>
+
+      <figure class="board">
+        <div class="w sheet">
+          <div class="hdr">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="who"><span class="av">📒</span><span class="nm">单词本</span></div>
+            <div class="ctl">
+              <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+              <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button><button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+            </div>
+          </div>
+          <div class="brief compact">
+            <div class="title">加入单词本</div>
+            <div class="q two"><mark>The ubiquity of smartphones has made ephemeral content the default; feeds juxtapose news with noise, and attention becomes the scarcest resource.</mark></div>
+            <div class="meta">选中自 Google Chrome · 152 字</div>
+          </div>
+          <div class="hair"></div>
+          <div class="rail">
+            <div class="node"><span class="dot ok"><svg class="ic s14" data-i="check"></svg></span><div class="row"><span class="tool">Read</span><span class="tgt">vocabulary.md</span><span class="dur">0.4s</span></div></div>
+            <div class="node"><span class="dot say"></span><div class="say-text">找到 3 个生词：ubiquity、ephemeral、juxtapose。下面把它们追加到单词本。</div></div>
+            <div class="node end pin-m"><span class="dot wait"><svg class="ic s12" data-i="hourglass"></svg></span>
+              <div class="row"><span class="tool">Edit</span><span class="tgt">vocabulary.md</span><span class="wl">等你批准</span></div>
+              <div class="gate">
+                <div class="diff">
+                  <div class="ln ctx">&nbsp;&nbsp;## 2026-10-27</div>
+                  <div class="ln add">+ - **ubiquity** /juːˈbɪkwəti/ n. 无处不在</div>
+                  <div class="ln add">+ - **ephemeral** /ɪˈfemərəl/ adj. 短暂的</div>
+                  <div class="ln add">+ - **juxtapose** /ˌdʒʌkstəˈpoʊz/ v. 并列，并置</div>
+                </div>
+                <div class="reason">拒绝原因（可选）<div class="ta">告诉智能体可以改用什么方案</div></div>
+                <div class="ap-btns"><span class="btn outline">拒绝 <span class="kbd">Esc</span></span><span class="btn emph">允许 <span class="kbd">Enter</span></span></div>
+              </div>
+              <i class="m">1</i>
+            </div>
+          </div>
+          <div class="foot">
+            <div class="status warn pin-m"><svg class="ic s14" data-i="hourglass"></svg>等待批准 · 第 2 步 · 0:12<i class="m" style="position: static; margin-left: 4px; box-shadow: none">2</i></div>
+            <div class="inrow off"><span class="input-line">批准或拒绝后可以继续补充</span><button class="send" aria-label="停止"><span class="sq"></span></button></div>
+          </div>
+        </div>
+        <figcaption><b><i class="m">1</i>运行中 · 待批准</b>审批卡片放在被拦下的那一步上，用户一眼就能看出卡在哪里、为什么卡住。卡片内容复用 PermissionRequestComposer，只是换了位置。<br><i class="m">2</i>底部状态行显示当前状态、步数和用时；输入框在待批准时暂停，停止按钮一直可用。</figcaption>
+      </figure>
+
+      <figure class="board">
+        <div class="w sheet">
+          <div class="hdr">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="who"><span class="av">📒</span><span class="nm">单词本</span></div>
+            <div class="ctl">
+              <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+              <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button><button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+            </div>
+          </div>
+          <div class="brief compact">
+            <div class="title">加入单词本</div>
+            <div class="q one"><mark>The ubiquity of smartphones has made ephemeral content the default; feeds juxtapose news with noise…</mark></div>
+          </div>
+          <div class="hair"></div>
+          <div class="summary pin-m"><svg class="ic s14 ok" data-i="circle-check"></svg>2 个步骤 · 用时 18 秒<svg class="ic s14" data-i="chevron-right"></svg><i class="m">1</i></div>
+          <div class="result">
+            <div class="eyebrow">结果</div>
+            <p>已加入单词本（<span class="code">vocabulary.md</span>）：</p>
+            <ul>
+              <li><b>ubiquity</b> /juːˈbɪkwəti/ n. 无处不在</li>
+              <li><b>ephemeral</b> /ɪˈfemərəl/ adj. 短暂的</li>
+              <li><b>juxtapose</b> /ˌdʒʌkstəˈpoʊz/ v. 并列，并置</li>
+            </ul>
+            <div class="acts">
+              <button class="gbtn icon" aria-label="复制结果"><svg class="ic s14" data-i="copy"></svg></button>
+              <button class="gbtn"><svg class="ic s14" data-i="external-link"></svg>在主窗口继续</button>
+            </div>
+          </div>
+          <div class="foot">
+            <div class="inrow pin-m"><span class="input-line">继续追问，会接在这次任务后面</span><button class="send" disabled aria-label="发送"><svg class="ic s14" data-i="arrow-up"></svg></button><i class="m">2</i></div>
+          </div>
+        </div>
+        <figcaption><b><i class="m">1</i>完成</b>步骤轴收成一行摘要，点开能看全部步骤；结果成为主角。<br><i class="m">2</i>追问会在下方开始新的一轮，带一条「第 2 轮」分隔线，和第 1 轮的步骤、结果分开显示。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── C ── -->
+  <section class="dir" id="c">
+    <div class="dir-head"><span class="letter">方向 C</span><h2>贴边伴随：窗口贴在屏幕右侧，收起后变成状态胶囊</h2>
+      <p>窗口不再跟着选区弹出，而是贴在屏幕右侧，像一个随叫随到的侧栏。关掉不是消失，而是收成右上角的小胶囊，后台任务的状态一直可见。</p></div>
+    <div class="boards">
+      <figure class="board">
+        <div class="desk">
+          <div class="menubar"><b>Chrome</b><span>文件</span><span>编辑</span><span>视图</span></div>
+          <div class="appwin">
+            <div class="ab">The Attention Economy</div>
+            <div class="ac"><mark>The ubiquity of smartphones has made ephemeral content the default; feeds juxtapose news with noise, and attention becomes the scarcest resource.</mark> Platforms compete for every idle second, and the cost is paid in focus…</div>
+          </div>
+          <div class="w dock">
+            <div class="hdr">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+              <div class="who"><span class="av">📒</span><span class="nm">单词本</span><span class="ss">加入单词本</span></div>
+              <div class="ctl">
+                <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+                <button class="ib" aria-label="收起为胶囊"><svg class="ic s14" data-i="minimize-2"></svg></button>
+              </div>
+            </div>
+            <div class="stream">
+              <div class="ask"><div class="t">加入单词本</div><div class="q two"><mark>The ubiquity of smartphones has made ephemeral content the default; feeds juxtapose news…</mark></div></div>
+              <div class="steps">
+                <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Read</span><span class="target">vocabulary.md</span></div>
+                <div class="step"><span class="st run"><svg class="ic s14 spin" data-i="loader-circle"></svg></span><span class="tool">Edit</span><span class="target">vocabulary.md</span><span class="lbl">运行中</span></div>
+              </div>
+              <p class="caret">正在追加 ubiquity、ephemeral、juxtapose</p>
+            </div>
+            <div class="foot"><div class="inrow"><span class="input-line">补充说明，将在当前步骤后送达</span><button class="send" aria-label="停止"><span class="sq"></span></button></div></div>
+          </div>
+        </div>
+        <figcaption><b>展开 · 贴边侧栏 360 宽、与屏幕同高</b>不挡住阅读位置；多个任务时，侧栏顶部可以切换。</figcaption>
+      </figure>
+
+      <figure class="board">
+        <div class="desk" style="height: 300px">
+          <div class="menubar"><b>Chrome</b><span>文件</span><span>编辑</span><span>视图</span></div>
+          <div class="appwin" style="height: 220px"><div class="ab">The Attention Economy</div><div class="ac">Platforms compete for every idle second, and the cost is paid in focus…</div></div>
+          <div class="capsules">
+            <div class="capsule warn"><span class="av">📒</span><span class="nm">单词本</span><span class="s warn"><svg class="ic s12" data-i="hourglass"></svg>等你批准</span></div>
+            <div class="capsule"><span class="av">🛠️</span><span class="nm">开发助手</span><span class="s"><svg class="ic s12 spin" data-i="loader-circle"></svg>第 3 步</span></div>
+            <div class="capsule"><span class="av">🍒</span><span class="nm">Cherry Assistant</span><span class="s ok"><svg class="ic s12" data-i="check"></svg>完成</span></div>
+          </div>
+        </div>
+        <figcaption><b>标志：收起后的状态胶囊</b>每个后台任务一颗胶囊，点击展开回侧栏。需要批准的胶囊排在最上面。这是 prd 之外的新界面，会改动「关窗 = 只在主应用可见」这条已定规则。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── Compare ── -->
+  <section class="dir" id="compare">
+    <div class="dir-head"><span class="letter">对比</span><h2>怎么选</h2></div>
+    <table class="cmp">
+      <thead><tr><th></th><th>A 指令条</th><th>B 任务单</th><th>C 贴边伴随</th></tr></thead>
+      <tbody>
+        <tr><th>最适合</th><td>一句话就能交代清楚的问题</td><td>需要几步、会改东西的任务</td><td>长时间在后台运行、需要随时盯着的任务</td></tr>
+        <tr><th>内容的组织方式</th><td>对话流，和主窗口一致</td><td>任务 → 步骤 → 结果，不是对话</td><td>对话流，放在侧栏里</td></tr>
+        <tr><th>审批的位置</th><td>替换输入区（和主窗口一致）</td><td>放在被拦下的那一步上</td><td>替换输入区</td></tr>
+        <tr><th>复用主窗口组件</th><td>最多：消息列表、输入区、审批卡片</td><td>工具渲染、Markdown、审批卡片内容；步骤轴是新的组合</td><td>和 A 相同</td></tr>
+        <tr><th>新增工作</th><td>窗口从输入栏展开的动效（Windows/Linux 较难做）</td><td>步骤轴布局、完成后收起</td><td>贴边窗口、胶囊窗口、多任务切换、多显示器定位</td></tr>
+        <tr><th>和已定规则的关系</th><td>一致</td><td>一致</td><td>要改关窗规则，范围变大</td></tr>
+      </tbody>
+    </table>
+    <div class="verdict"><b>当时的推荐是 B（最终没有采用，见页首）。</b>智能体干活和聊天不一样：用户想知道它在做哪一步、卡在哪里、最后得到了什么，任务单正好按这个顺序组织。审批放在被拦下的那一步上，比放在输入区更容易看懂。B 只用一个固定窗口，没有 A 的跨平台动效问题，也不需要 C 的新窗口类型。A 待输入时那种轻巧的输入栏，以后可以作为 B 的待输入形态再评估；C 的胶囊适合等后台任务多起来以后单独立项。</div>
+  </section>
+</div>
+
+<script>
+const ICONS = {"external-link":"<path d=\"M15 3h6v6\"/><path d=\"M10 14 21 3\"/><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/>","pin":"<path d=\"M12 17v5\"/><path d=\"M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z\"/>","droplet":"<path d=\"M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z\"/>","minus":"<path d=\"M5 12h14\"/>","x":"<path d=\"M18 6 6 18\"/><path d=\"m6 6 12 12\"/>","chevron-down":"<path d=\"m6 9 6 6 6-6\"/>","folder":"<path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/>","arrow-up":"<path d=\"m5 12 7-7 7 7\"/><path d=\"M12 19V5\"/>","hourglass":"<path d=\"M5 22h14\"/><path d=\"M5 2h14\"/><path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\"/><path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\"/>","check":"<path d=\"M20 6 9 17l-5-5\"/>","file-pen":"<path d=\"M12.5 22H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v9.5\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/><path d=\"M13.378 15.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z\"/>","loader-circle":"<path d=\"M21 12a9 9 0 1 1-6.219-8.56\"/>","play":"<polygon points=\"6 3 20 12 6 21 6 3\"/>","circle-check":"<circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m9 12 2 2 4-4\"/>","chevron-right":"<path d=\"m9 18 6-6-6-6\"/>","copy":"<rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\"/><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"/>","minimize-2":"<path d=\"m14 10 7-7\"/><path d=\"M20 10h-6V4\"/><path d=\"m3 21 7-7\"/><path d=\"M4 14h6v6\"/>"};
+document.querySelectorAll('svg[data-i]').forEach((el) => {
+  const body = ICONS[el.dataset.i];
+  if (!body) return;
+  el.setAttribute('viewBox', '0 0 24 24');
+  el.setAttribute('fill', 'none');
+  el.setAttribute('stroke', 'currentColor');
+  el.setAttribute('stroke-width', '2');
+  el.setAttribute('stroke-linecap', 'round');
+  el.setAttribute('stroke-linejoin', 'round');
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = body;
+});
+
+const morph = document.getElementById('morph');
+document.getElementById('replay').addEventListener('click', () => {
+  morph.classList.remove('open');
+  void morph.offsetHeight;
+  setTimeout(() => morph.classList.add('open'), 150);
+});
+
+const media = window.matchMedia('(prefers-color-scheme: dark)');
+let mode = 'system';
+try { mode = localStorage.getItem('selection-agent-mock-theme') || 'system'; } catch {}
+function applyTheme() {
+  const dark = mode === 'dark' || (mode === 'system' && media.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.querySelectorAll('[data-theme-btn]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeBtn === mode)));
+}
+document.querySelectorAll('[data-theme-btn]').forEach((b) => b.addEventListener('click', () => {
+  mode = b.dataset.themeBtn;
+  try { localStorage.setItem('selection-agent-mock-theme', mode); } catch {}
+  applyTheme();
+}));
+media.addEventListener('change', applyTheme);
+applyTheme();
+</script>
+</body>
+</html>

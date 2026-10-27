@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>划词智能体设计稿</title>
+<style>
+/* Semantic tokens copied from packages/ui/src/styles (light / .dark). */
+:root {
+  color-scheme: light;
+  --canvas: oklch(0.955 0 0);
+  --background: oklch(1 0 0);
+  --background-subtle: oklch(0 0 0 / 0.02);
+  --foreground: oklch(0.213 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --foreground-tertiary: oklch(0.669 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --border: oklch(0 0 0 / 0.1);
+  --border-subtle: oklch(0 0 0 / 0.06);
+  --border-strong: oklch(0 0 0 / 0.2);
+  --muted: oklch(0 0 0 / 0.05);
+  --accent: oklch(0 0 0 / 0.05);
+  --primary: oklch(0.77 0.208 146);
+  --destructive: oklch(0.64 0.208 25);
+  --emphasis: oklch(0.2 0 0);
+  --emphasis-foreground: oklch(1 0 0);
+  --success: oklch(0.72 0.192 149);
+  --info: oklch(0.63 0.186 260);
+  --warning: oklch(0.77 0.165 71);
+  --error: oklch(0.64 0.208 25);
+  --success-subtle: oklch(0.98 0.016 156);
+  --success-subtle-foreground: oklch(0.45 0.107 151);
+  --warning-subtle: oklch(0.99 0.022 95);
+  --warning-subtle-foreground: oklch(0.47 0.124 47);
+  --warning-border: oklch(0.93 0.114 96);
+  --error-subtle: oklch(0.97 0.014 17);
+  --error-subtle-foreground: oklch(0.44 0.16 27);
+  --error-border: oklch(0.89 0.06 18);
+  --info-subtle: oklch(0.97 0.014 255);
+  --info-subtle-foreground: oklch(0.42 0.181 266);
+  --reference: #cfe1ff;
+  --reference-foreground: #000;
+  --window-shadow: 0 12px 32px oklch(0 0 0 / 0.12), 0 1px 3px oklch(0 0 0 / 0.08);
+  --toolbar-shadow: 0 2px 3px oklch(0.3 0 0 / 0.1);
+  --anno: oklch(0.6 0.22 350);
+  --desk: oklch(0.86 0.02 250);
+  --font: Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: oklch(0.16 0 0);
+  --background: oklch(0.209 0 0);
+  --background-subtle: oklch(1 0 0 / 0.02);
+  --foreground: oklch(0.931 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --foreground-tertiary: oklch(0.559 0 0);
+  --card: oklch(0.2 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.27 0 0);
+  --border: oklch(1 0 0 / 0.1);
+  --border-subtle: oklch(1 0 0 / 0.07);
+  --border-strong: oklch(1 0 0 / 0.2);
+  --muted: oklch(1 0 0 / 0.1);
+  --accent: oklch(1 0 0 / 0.1);
+  --destructive: oklch(0.71 0.166 22);
+  --emphasis: oklch(0.97 0 0);
+  --emphasis-foreground: oklch(0.2 0 0);
+  --success: oklch(0.8 0.182 152);
+  --info: oklch(0.72 0.143 254);
+  --warning: oklch(0.83 0.164 84);
+  --error: oklch(0.71 0.166 22);
+  --success-subtle: oklch(0.39 0.089 153);
+  --success-subtle-foreground: oklch(0.96 0.041 157);
+  --warning-subtle: oklch(0.41 0.104 46);
+  --warning-subtle-foreground: oklch(0.96 0.057 96);
+  --warning-border: oklch(0.55 0.145 49);
+  --error-subtle: oklch(0.4 0.135 26);
+  --error-subtle-foreground: oklch(0.93 0.031 18);
+  --error-border: oklch(0.5 0.15 25);
+  --info-subtle: oklch(0.38 0.136 265);
+  --info-subtle-foreground: oklch(0.93 0.03 255);
+  --reference: #404040;
+  --reference-foreground: #fff;
+  --window-shadow: 0 12px 32px oklch(0 0 0 / 0.5), 0 1px 3px oklch(0 0 0 / 0.4);
+  --toolbar-shadow: 0 2px 3px oklch(0.3 0 0 / 0.3);
+  --desk: oklch(0.3 0.03 255);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--canvas); color: var(--foreground); font-family: var(--font); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+code { font-family: var(--mono); font-size: 0.92em; }
+.ic { width: 16px; height: 16px; flex-shrink: 0; }
+.ic.s12 { width: 12px; height: 12px; } .ic.s14 { width: 14px; height: 14px; } .ic.s20 { width: 20px; height: 20px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.caret::after { content: ""; display: inline-block; width: 7px; height: 14px; margin-left: 2px; vertical-align: -2px; background: var(--foreground); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .spin, .caret::after { animation: none; } }
+
+/* ── Document chrome ── */
+.page { max-width: 1240px; margin: 0 auto; padding: 32px 24px 96px; }
+.doc-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; }
+.doc-head h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; }
+.doc-head p { margin: 4px 0 0; color: var(--muted-foreground); }
+.doc-head a { color: var(--info); }
+.theme-toggle { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--muted); }
+.theme-toggle button { border: 0; background: transparent; padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--muted-foreground); cursor: pointer; }
+.theme-toggle button[aria-pressed="true"] { background: var(--background); color: var(--foreground); box-shadow: 0 1px 2px oklch(0 0 0 / 0.1); }
+.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 8px; }
+.toc a { font-size: 12px; text-decoration: none; color: var(--muted-foreground); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--background); }
+.toc a:hover { color: var(--foreground); }
+section.sec { margin-top: 52px; }
+.sec-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 20px; }
+.sec-head h2 { margin: 0; font-size: 18px; line-height: 28px; font-weight: 600; }
+.sec-head p { margin: 0 0 0 auto; color: var(--muted-foreground); font-size: 12px; }
+.boards { display: flex; flex-wrap: wrap; gap: 40px 32px; align-items: flex-start; }
+figure.board { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+figure.board > figcaption { max-width: 560px; }
+figcaption .state { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+figcaption .state .tag { font-weight: 500; font-size: 11px; color: var(--muted-foreground); border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; }
+figcaption ol, figcaption ul { margin: 6px 0 0; padding-left: 0; list-style: none; color: var(--muted-foreground); font-size: 12px; line-height: 18px; }
+figcaption li { display: flex; gap: 6px; margin-top: 4px; }
+.m { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--anno); color: #fff; font-size: 10px; font-weight: 600; line-height: 1; font-style: normal; }
+.anchor-m { position: relative; }
+.anchor-m > .m { position: absolute; top: -8px; right: -8px; z-index: 5; box-shadow: 0 0 0 2px var(--canvas); }
+.m.inline { position: static !important; box-shadow: none !important; margin-left: 4px; }
+.note { color: var(--muted-foreground); font-size: 12px; }
+
+/* ── Window shell: no title bar band, one background ── */
+.win { position: relative; display: flex; flex-direction: column; overflow: hidden; background: var(--popover); color: var(--foreground); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--window-shadow); }
+.dlg { width: 560px; height: 620px; }
+.hdr { height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; }
+/* macOS traffic lights are kept and positioned inside our header (trafficLightPosition). */
+.traffic { display: flex; gap: 8px; width: 52px; margin-right: 4px; flex-shrink: 0; }
+.traffic i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; box-shadow: inset 0 0 0 0.5px oklch(0 0 0 / 0.15); }
+.traffic i:nth-child(2) { background: #febc2e; } .traffic i:nth-child(3) { background: #28c840; }
+.traffic.no-min i:nth-child(2) { background: var(--muted); box-shadow: inset 0 0 0 0.5px var(--border-strong); }
+.who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.who .nm { font-weight: 500; white-space: nowrap; }
+.who .ss { color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; background: var(--muted); font-size: 13px; line-height: 1; flex-shrink: 0; }
+.av.sm { width: 18px; height: 18px; font-size: 11px; border-radius: 5px; }
+.ctl { display: flex; gap: 2px; align-items: center; }
+.ib { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); }
+.ib:hover { background: var(--accent); color: var(--foreground); }
+.ib[disabled] > svg { opacity: 0.4; }
+.ib.close:hover { background: var(--destructive); color: #fff; }
+.ctl-sep { width: 1px; height: 16px; margin: 0 4px; background: var(--border); }
+.pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+.pill.warn { background: var(--warning-subtle); color: var(--warning-subtle-foreground); }
+
+/* Selected text carried in as a reference (product --reference token) */
+.q { font-size: 13px; line-height: 22px; color: var(--foreground); min-width: 0; }
+.q.mono { font-family: var(--mono); font-size: 12px; line-height: 21px; }
+.q mark { background: var(--reference); color: var(--reference-foreground); padding: 2px 3px; border-radius: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.q.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q.two { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.meta { font-size: 12px; color: var(--muted-foreground); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+
+/* Command bar (compose) */
+.bar { width: 560px; }
+.bar-q { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; }
+.bar-q .q { flex: 1; }
+.bar-in { padding: 4px 16px 6px; font-size: 18px; line-height: 28px; font-weight: 500; }
+.bar-in.ph { color: var(--foreground-tertiary); font-weight: 400; }
+.bar-in.msg { font-size: 14px; line-height: 22px; font-weight: 400; color: var(--muted-foreground); display: flex; align-items: center; gap: 10px; }
+.bar-foot { display: flex; align-items: center; gap: 6px; padding: 6px 10px 10px 12px; }
+.grow { flex: 1; }
+.cursor { display: inline-block; width: 1.5px; height: 20px; vertical-align: -4px; background: var(--foreground); }
+.chip { height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: transparent; font-size: 12px; color: var(--foreground); white-space: nowrap; }
+.chip .ic { color: var(--muted-foreground); }
+.chip.off { color: var(--muted-foreground); border-style: dashed; }
+.send { width: 30px; height: 30px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--emphasis); color: var(--emphasis-foreground); flex-shrink: 0; }
+.send[disabled] { background: var(--muted); color: var(--foreground-tertiary); }
+.send .sq { width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
+
+/* Dialog content */
+.stream { flex: 1; min-height: 0; overflow: hidden; padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 22px; }
+.stream p { margin: 0; }
+.stream ul { margin: 0; padding-left: 18px; }
+.ask { display: flex; flex-direction: column; gap: 6px; }
+.ask .t { font-size: 15px; font-weight: 500; line-height: 22px; display: flex; align-items: center; gap: 6px; }
+.ask .t .act-ic { color: var(--muted-foreground); }
+.ask .src { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ask .src .q { flex: 1; }
+.code { font-family: var(--mono); font-size: 12.5px; padding: 1px 4px; border-radius: 4px; background: var(--muted); }
+.steps { display: flex; flex-direction: column; gap: 1px; margin: 0 -6px; }
+.step { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 6px; border-radius: 6px; font-size: 13px; min-width: 0; }
+.step:hover { background: var(--accent); }
+.step .st { display: inline-flex; }
+.step .st.ok { color: var(--success); } .step .st.run { color: var(--info); } .step .st.wait { color: var(--warning); }
+.step .tool { font-weight: 500; flex-shrink: 0; }
+.step .target { color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; }
+.step .lbl { color: var(--muted-foreground); font-size: 12px; flex-shrink: 0; }
+.step .chev { color: var(--foreground-tertiary); }
+.starting { display: flex; align-items: center; gap: 8px; color: var(--muted-foreground); font-size: 13px; }
+.msg-actions { display: flex; align-items: center; gap: 2px; margin-left: -8px; }
+.gbtn { height: 26px; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); font-size: 12px; }
+.gbtn.icon { width: 26px; padding: 0; justify-content: center; }
+.gbtn:hover { background: var(--accent); color: var(--foreground); }
+.errcard { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--error-subtle); color: var(--error-subtle-foreground); border: 1px solid var(--error-border); font-size: 13px; line-height: 20px; }
+.errcard .title { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.errcard .row { display: flex; gap: 6px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 0 10px; border-radius: 8px; font-size: 13px; border: 1px solid transparent; white-space: nowrap; }
+.btn.sm { min-height: 28px; font-size: 12px; }
+.btn.outline { border-color: var(--border); background: transparent; color: var(--foreground); }
+.btn.emph { background: var(--emphasis); color: var(--emphasis-foreground); }
+.btn.on-err { border-color: var(--error-border); background: var(--background); color: var(--foreground); }
+.kbd { display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border-radius: 4px; font-size: 11px; background: var(--muted); color: var(--muted-foreground); }
+.btn.emph .kbd { background: color-mix(in oklch, currentColor 16%, transparent); color: inherit; }
+.composer { flex-shrink: 0; margin: 0 12px 12px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 14px; padding: 5px 5px 5px 12px; }
+.composer .ph { flex: 1; min-width: 0; font-size: 14px; color: var(--foreground-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.composer .ws { font-size: 12px; color: var(--muted-foreground); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.approval { flex-shrink: 0; margin: 0 12px 12px; border: 1px solid var(--border-strong); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.ap-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; font-size: 14px; font-weight: 600; }
+.ap-head .ic { color: var(--muted-foreground); }
+.ap-head .sub { font-weight: 400; color: var(--muted-foreground); font-size: 12px; font-family: var(--mono); }
+.diff { border-radius: 10px; border: 1px solid var(--border-subtle); padding: 6px 0; font-family: var(--mono); font-size: 11.5px; line-height: 19px; overflow: hidden; }
+.diff .ln { padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diff .add { background: var(--success-subtle); color: var(--success-subtle-foreground); }
+.diff .ctx { color: var(--muted-foreground); }
+.reason { font-size: 12px; color: var(--muted-foreground); padding: 0 4px; }
+.reason .ta { margin-top: 4px; height: 32px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; color: var(--foreground-tertiary); font-size: 12px; }
+.ap-btns { display: flex; justify-content: flex-end; gap: 8px; padding: 0 4px 2px; }
+
+/* Capsules */
+.capsule { height: 36px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px 0 7px; border-radius: 999px; background: var(--popover); border: 1px solid var(--border); box-shadow: var(--window-shadow); font-size: 12px; white-space: nowrap; color: var(--foreground); }
+.capsule .nm { font-weight: 500; }
+.capsule .s { color: var(--muted-foreground); display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+.capsule .s.warn { color: var(--warning-subtle-foreground); }
+.capsule .s.ok { color: var(--success); }
+.capsule .s.err { color: var(--error); }
+.capsule.warn { border-color: var(--warning-border); background: color-mix(in oklch, var(--warning-subtle) 60%, var(--popover)); }
+.capsule .title { color: var(--muted-foreground); max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.capsule .x { display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; border-radius: 50%; color: var(--muted-foreground); margin-right: -6px; }
+.capsule .x:hover { background: var(--accent); }
+.capsule.more { padding: 0 12px; color: var(--muted-foreground); }
+.capsule-col { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.cap-grid { display: grid; grid-template-columns: auto 1fr; gap: 14px 20px; align-items: center; padding: 20px 24px; background: var(--background); border: 1px solid var(--border); border-radius: 12px; width: 560px; }
+.cap-grid .capsule { justify-self: start; }
+.cap-grid .lbl { font-size: 12px; color: var(--muted-foreground); line-height: 18px; }
+.cap-grid .lbl b { display: block; color: var(--foreground); font-size: 13px; font-weight: 500; }
+
+/* Desktop frames */
+.desk { position: relative; width: 1152px; height: 420px; border-radius: 14px; overflow: hidden; background: var(--desk); border: 1px solid var(--border); }
+.menubar { height: 24px; background: color-mix(in oklch, var(--popover) 75%, transparent); display: flex; align-items: center; gap: 16px; padding: 0 14px; font-size: 12px; color: var(--foreground); }
+.appwin { position: absolute; left: 48px; top: 52px; width: 620px; height: 330px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--window-shadow); overflow: hidden; }
+.appwin .ab { height: 30px; display: flex; align-items: center; padding: 0 12px; font-size: 12px; color: var(--muted-foreground); background: var(--muted); }
+.appwin .ac { padding: 20px 24px; font-size: 14px; line-height: 24px; color: var(--card-foreground); }
+/* Capsules anchor to the display work area, so they sit above the Dock / taskbar. */
+.desk .capsule-col { position: absolute; right: 14px; bottom: 70px; }
+.dockbar { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 16px; background: color-mix(in oklch, var(--popover) 70%, transparent); border: 1px solid var(--border); }
+.dockbar i { width: 34px; height: 34px; border-radius: 9px; background: var(--muted); }
+.workarea { position: absolute; left: 0; right: 0; bottom: 58px; border-top: 1px dashed var(--border-strong); }
+.workarea span { position: absolute; right: 14px; top: 4px; font-size: 11px; color: var(--muted-foreground); }
+.ghost { position: absolute; border: 1.5px dashed var(--border-strong); border-radius: 12px; }
+
+/* Motion demos */
+.morph { width: 560px; height: 150px; transition: height 380ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.morph.open { height: 420px; }
+.morph .after { opacity: 0; transition: opacity 200ms 220ms; }
+.morph.open .after { opacity: 1; }
+.demo { position: relative; width: 560px; height: 340px; border-radius: 12px; overflow: hidden; background: var(--desk); border: 1px solid var(--border); }
+.demo .mini { position: absolute; left: 70px; top: 50px; width: 230px; height: 250px; transform-origin: bottom right; transition: transform 340ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms 160ms; }
+.demo .mini .hdr { height: 30px; padding: 0 8px; }
+.demo .mini .traffic { width: 36px; gap: 5px; }
+.demo .mini .traffic i { width: 8px; height: 8px; }
+.demo .mini .bars { padding: 6px 12px; display: flex; flex-direction: column; gap: 8px; }
+.demo .mini .bars i { display: block; height: 8px; border-radius: 4px; background: var(--muted); }
+.demo .cap-slot { position: absolute; right: 12px; bottom: 14px; opacity: 0; transform: scale(0.9); transition: opacity 180ms 260ms, transform 180ms 260ms; }
+.demo.collapsed .mini { transform: translate(248px, 26px) scale(0.18); opacity: 0; }
+.demo.collapsed .cap-slot { opacity: 1; transform: scale(1); }
+@media (prefers-reduced-motion: reduce) { .morph, .morph .after, .demo .mini, .demo .cap-slot { transition: none; } }
+
+/* ── Toolbar & source app ── */
+.toolbar { display: inline-flex; height: 36px; border-radius: 10px; background: var(--card); box-shadow: var(--toolbar-shadow); font-size: 14px; outline: 0.5px solid var(--border-strong); outline-offset: -0.5px; }
+.toolbar .logo { display: flex; align-items: center; padding: 0 6px 0 8px; }
+.toolbar .logo img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+.toolbar .act { display: flex; align-items: center; gap: 2px; padding: 0 8px; color: var(--card-foreground); white-space: nowrap; }
+.toolbar .act:last-child { padding-right: 12px; border-radius: 0 10px 10px 0; }
+.toolbar .act.hover { background: var(--accent); color: var(--primary); }
+.toolbar .act .ic { margin-right: 2px; }
+.srcapp { width: 620px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--card); box-shadow: var(--window-shadow); }
+.srcapp .sbar { height: 30px; display: flex; align-items: center; padding: 0 12px; background: var(--muted); font-size: 12px; color: var(--muted-foreground); }
+.srcapp .content { padding: 18px 22px 22px; font-size: 14px; line-height: 24px; color: var(--card-foreground); }
+.srcapp .content.term { background: oklch(0.18 0 0); color: oklch(0.88 0 0); font-family: var(--mono); font-size: 12.5px; line-height: 20px; }
+.srcapp mark, .appwin mark { background: oklch(0.62 0.17 255 / 0.32); color: inherit; border-radius: 2px; }
+.float-tb { margin-top: 10px; font-family: var(--font); }
+
+/* ── Flow ── */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.fnode { position: relative; background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-right: 28px; }
+.fnode:last-child { margin-right: 0; }
+.fnode::after { content: ""; position: absolute; right: -22px; top: 50%; width: 16px; height: 1.5px; background: var(--foreground-tertiary); }
+.fnode::before { content: ""; position: absolute; right: -23px; top: calc(50% - 4px); border: 4.5px solid transparent; border-left-color: var(--foreground-tertiary); border-right: 0; }
+.fnode:last-child::after, .fnode:last-child::before { display: none; }
+.fnode .k { font-size: 11px; color: var(--muted-foreground); }
+.fnode .v { font-weight: 600; margin: 2px 0 6px; }
+.fnode .d { font-size: 12px; color: var(--muted-foreground); line-height: 18px; }
+.states { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 4px; font-size: 11px; }
+.states .s { padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); background: var(--background-subtle); white-space: nowrap; }
+.states .s.warn { border-color: var(--warning-border); background: var(--warning-subtle); color: var(--warning-subtle-foreground); }
+.states .ar { color: var(--foreground-tertiary); }
+.flow-notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+.flow-notes div { font-size: 12px; color: var(--muted-foreground); background: var(--background); border: 1px dashed var(--border-strong); border-radius: 10px; padding: 10px 12px; line-height: 18px; }
+.flow-notes b { color: var(--foreground); font-weight: 600; }
+
+/* ── Main app session list ── */
+.mainapp { width: 720px; height: 360px; display: flex; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--background); box-shadow: var(--window-shadow); }
+.mainapp .side { width: 260px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; background: var(--background-subtle); }
+.mainapp .grp { font-size: 11px; color: var(--muted-foreground); padding: 8px 8px 4px; display: flex; align-items: center; gap: 6px; }
+.srow { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 8px; font-size: 13px; min-width: 0; }
+.srow.active { background: var(--accent); }
+.srow .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+.mainapp .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.mainapp .mhead { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 500; }
+.mainapp .mbody { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+
+/* ── Settings ── */
+.sdlg { width: 480px; border-radius: 14px; border: 1px solid var(--border); background: var(--popover); box-shadow: var(--window-shadow); overflow: hidden; }
+.sdlg .dh { padding: 16px 20px 4px; font-size: 16px; font-weight: 600; }
+.sdlg .db { padding: 12px 20px; display: flex; flex-direction: column; gap: 16px; }
+.sdlg .df { padding: 12px 20px 16px; display: flex; justify-content: flex-end; gap: 8px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > label { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.field > label .ic { color: var(--muted-foreground); }
+.input { height: 32px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; display: flex; align-items: center; gap: 8px; font-size: 13px; background: var(--background); }
+.input .ic { color: var(--muted-foreground); }
+.textarea { min-height: 76px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 20px; background: var(--background); }
+.radios { display: flex; gap: 18px; font-size: 13px; }
+.radios span { display: inline-flex; align-items: center; gap: 6px; }
+.radios span::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border-strong); box-sizing: border-box; }
+.radios span.on::before { border: 4px solid var(--emphasis); }
+.infobar { display: flex; gap: 8px; padding: 8px 10px; border-radius: 8px; background: var(--info-subtle); color: var(--info-subtle-foreground); font-size: 12px; line-height: 18px; }
+.alist { width: 480px; border-radius: 12px; border: 1px solid var(--border); background: var(--background); }
+.alist .ah { padding: 10px 14px; font-size: 12px; color: var(--muted-foreground); border-bottom: 1px solid var(--border); }
+.arow { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 14px; font-size: 13px; border-bottom: 1px solid var(--border-subtle); }
+.arow:last-child { border-bottom: 0; }
+.arow .grip { color: var(--foreground-tertiary); }
+.arow .t { flex: 1; }
+.arow .inline-info { margin-left: 6px; font-size: 12px; color: var(--muted-foreground); }
+
+/* ── Rules ── */
+table.rules { border-collapse: collapse; width: 100%; background: var(--background); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 13px; }
+table.rules th, table.rules td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+table.rules th { font-size: 12px; font-weight: 500; color: var(--muted-foreground); background: var(--background-subtle); }
+table.rules tr:last-child td { border-bottom: 0; }
+table.rules td.hl { color: var(--warning-subtle-foreground); font-weight: 500; }
+.spec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+.spec { background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 12px; color: var(--muted-foreground); line-height: 18px; }
+.spec b { display: block; color: var(--foreground); font-size: 13px; margin-bottom: 4px; }
+
+@media (max-width: 900px) {
+  .flow, .flow-notes { grid-template-columns: 1fr; gap: 12px; }
+  .fnode { margin-right: 0; }
+  .fnode::after, .fnode::before { display: none; }
+}
+@media (max-width: 640px) {
+  .page { padding: 20px 16px 64px; }
+  .boards > * { max-width: 100%; overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc-head">
+    <div>
+      <h1>划词助手 × 智能体 · 设计稿</h1>
+      <p>第 2 版 · 2026-10-27 · 形态：指令条 + 胶囊（选择过程见 <a href="./directions.html">directions.html</a>）· 配套 <a href="./prd.md">prd.md</a></p>
+    </div>
+    <div class="theme-toggle" role="group" aria-label="主题">
+      <button type="button" data-theme-btn="system">跟随系统</button>
+      <button type="button" data-theme-btn="light">浅色</button>
+      <button type="button" data-theme-btn="dark">深色</button>
+    </div>
+  </header>
+  <nav class="toc">
+    <a href="#flow">流程</a><a href="#entry">入口</a><a href="#shell">窗口外壳</a><a href="#window">窗口状态</a><a href="#capsule">胶囊</a><a href="#background">关窗与主应用</a><a href="#settings">设置</a><a href="#rules">规则速查</a>
+  </nav>
+
+  <!-- flow -->
+  <section class="sec" id="flow">
+    <div class="sec-head"><h2>流程</h2><p>一个窗口 = 一个真实会话</p></div>
+    <div class="flow">
+      <div class="fnode"><div class="k">任意应用</div><div class="v">选中文本</div><div class="d">划词事件里带有来源应用名。</div></div>
+      <div class="fnode"><div class="k">划词工具栏</div><div class="v">问智能体 / 智能体动作</div><div class="d">问智能体：打开指令条。<br>智能体动作：直接打开对话窗口并发送。</div></div>
+      <div class="fnode"><div class="k">窗口</div><div class="v">指令条 → 对话窗口</div>
+        <div class="states"><span class="s">待输入</span><span class="ar">→ 展开 →</span><span class="s">运行中</span><span class="ar">⇄</span><span class="s warn">待批准</span><span class="ar">→</span><span class="s">完成</span></div>
+      </div>
+      <div class="fnode"><div class="k">最小化 / 失焦</div><div class="v">收成胶囊</div><div class="d">胶囊堆在屏幕右下角，显示状态；点击恢复窗口。</div></div>
+      <div class="fnode"><div class="k">主应用 · 智能体页</div><div class="v">会话列表可见</div><div class="d">关窗后也能在这里看到运行状态、审批和继续对话。</div></div>
+    </div>
+    <div class="flow-notes">
+      <div><b>收起 ≠ 关闭</b>：最小化（macOS 黄灯）把窗口收成胶囊；关闭（红灯）关掉窗口，不留胶囊。两者都不会停止智能体。</div>
+      <div><b>在主窗口打开 / 继续</b>：发送后的任何状态都可用。主窗口选中这个会话，迷你窗口关闭，未发送的草稿带过去。</div>
+      <div><b>不变的部分</b>：翻译、解释、总结等助手动作，仍走原来的一次性结果窗口。</div>
+    </div>
+  </section>
+
+  <!-- entry -->
+  <section class="sec" id="entry">
+    <div class="sec-head"><h2>入口：划词工具栏</h2><p>沿用 SelectionToolbarView 的样式</p></div>
+    <div class="boards">
+      <figure class="board">
+        <div class="srcapp">
+          <div class="sbar">Terminal — my-blog</div>
+          <div class="content term">
+            <div>$ pnpm dev</div>
+            <div>✓ Ready in 1.8s</div>
+            <div><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div>
+            <div><mark>&nbsp;&nbsp;&nbsp;&nbsp;at PostList (src/components/PostList.tsx:18:22)</mark></div>
+            <div><mark>&nbsp;&nbsp;&nbsp;&nbsp;at renderWithHooks (react-dom.development.js:15486:18)</mark></div>
+            <div class="float-tb">
+              <div class="toolbar">
+                <span class="logo"><img src="../../../src/renderer/assets/images/logo.png" alt=""></span>
+                <span class="act"><svg class="ic" data-i="languages"></svg>翻译</span>
+                <span class="act"><svg class="ic" data-i="file-question-mark"></svg>解释</span>
+                <span class="act"><svg class="ic" data-i="scan-text"></svg>总结</span>
+                <span class="act"><svg class="ic" data-i="search"></svg>搜索</span>
+                <span class="act"><svg class="ic" data-i="clipboard-copy"></svg>复制</span>
+                <span class="act hover anchor-m"><svg class="ic" data-i="bot"></svg>问智能体<i class="m">1</i></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">场景 A · 问智能体 <span class="tag">新内置动作</span></div>
+          <ol><li><i class="m">1</i><span>新内置动作 <code>ask-agent</code>，图标 <code>bot</code>，样式和现有动作一致。新装默认启用；老用户在功能列表里可见，默认不启用。点击后打开指令条。</span></li></ol>
+        </figcaption>
+      </figure>
+      <figure class="board">
+        <div class="srcapp" style="width: 520px">
+          <div class="sbar">Google Chrome — The Attention Economy</div>
+          <div class="content">
+            <div><mark>The ubiquity of smartphones has made ephemeral content the default; feeds juxtapose news with noise, and attention becomes the scarcest resource.</mark> Platforms compete for every idle second…</div>
+            <div class="float-tb">
+              <div class="toolbar">
+                <span class="logo"><img src="../../../src/renderer/assets/images/logo.png" alt=""></span>
+                <span class="act"><svg class="ic" data-i="languages"></svg>翻译</span>
+                <span class="act"><svg class="ic" data-i="file-question-mark"></svg>解释</span>
+                <span class="act hover anchor-m"><svg class="ic" data-i="book-a"></svg>加入单词本<i class="m">2</i></span>
+                <span class="act"><svg class="ic" data-i="bot"></svg>问智能体</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">场景 B · 绑定智能体的自定义动作</div>
+          <ol><li><i class="m">2</i><span>用户只认动作名，看不出绑的是助手还是智能体。点击后跳过指令条，直接打开对话窗口并发送。</span></li></ol>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- shell -->
+  <section class="sec" id="shell">
+    <div class="sec-head"><h2>窗口外壳</h2><p>没有标题栏色带 · 整窗一种背景（popover）</p></div>
+    <div class="boards">
+      <figure class="board">
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 560px">
+          <div class="win">
+            <div class="hdr">
+              <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div><i class="m">1</i>
+              <div class="who"><span class="av">📒</span><span class="nm">单词本</span><span class="ss">加入单词本</span></div>
+              <div class="ctl">
+                <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+                <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button>
+                <button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="win">
+            <div class="hdr">
+              <div class="who"><span class="av">📒</span><span class="nm">单词本</span><span class="ss">加入单词本</span></div>
+              <div class="ctl">
+                <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+                <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button>
+                <button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+                <span class="ctl-sep"></span>
+                <button class="ib anchor-m" aria-label="收起为胶囊"><svg class="ic s14" data-i="minus"></svg><i class="m">2</i></button>
+                <button class="ib close" aria-label="关闭"><svg class="ic s14" data-i="x"></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">头部 · 上：macOS　下：Windows / Linux</div>
+          <ol>
+            <li><i class="m">1</i><span>头部高 44px，和内容同一背景。macOS 保留系统红绿灯，通过 <code>trafficLightPosition</code> 放进头部并和头像垂直居中，左侧预留 78px。<b>黄灯 = 收起成胶囊</b>（⌘M 同理），红灯 = 关闭。</span></li>
+            <li><i class="m">2</i><span>Windows/Linux 由我们绘制最小化和关闭；最小化的提示文字是「收起为胶囊」，行为和 macOS 黄灯一致。头部空白处可以拖动窗口。</span></li>
+          </ol>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- window states -->
+  <section class="sec" id="window">
+    <div class="sec-head"><h2>窗口状态</h2><p>指令条 560×150（高度随内容）· 对话窗口默认 560×620，最小 420×480 · 以 macOS 为例</p></div>
+    <div class="boards">
+
+      <!-- compose -->
+      <figure class="board">
+        <div class="win bar">
+          <div class="bar-q">
+            <div class="traffic no-min" aria-hidden="true"><i></i><i></i><i></i></div><i class="m">1</i>
+            <div class="q mono one"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div>
+            <span class="meta">Terminal · 3 行</span>
+          </div>
+          <div class="bar-in">这个报错是什么原因？在项目里查一下<span class="cursor"></span></div>
+          <div class="bar-foot">
+            <span class="chip"><span class="av sm">🛠️</span>开发助手<svg class="ic s12" data-i="chevron-down"></svg></span><i class="m">2</i>
+            <span class="chip"><svg class="ic s14" data-i="folder"></svg>my-blog<svg class="ic s12" data-i="chevron-down"></svg></span>
+            <span class="grow"></span>
+            <span class="meta">会保存为会话</span><i class="m">3</i>
+            <button class="send" aria-label="发送"><svg class="ic s14" data-i="arrow-up"></svg></button>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">待输入 · 指令条 <span class="tag">问智能体</span></div>
+          <ol>
+            <li><i class="m">1</i><span>还没有会话，所以不能收起：黄灯置灰。红灯和 Esc 关闭；有草稿时 Esc 不响应。引用只显示一行，悬停看全文，点 ✕（悬停时出现）移除。</span></li>
+            <li><i class="m">2</i><span>智能体、工作目录默认取「问智能体设置」，可以临时改；发送后锁定。复用 AgentSelector / WorkspaceSelector。</span></li>
+            <li><i class="m">3</i><span>发送按钮旁一行小字说明「会保存为会话」，和助手动作的临时结果区分开。</span></li>
+          </ol>
+        </figcaption>
+      </figure>
+
+      <!-- morph demo -->
+      <figure class="board">
+        <div class="win morph" id="morph">
+          <div class="bar-q">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="q mono one"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div>
+            <span class="meta">Terminal · 3 行</span>
+          </div>
+          <div class="bar-in">这个报错是什么原因？在项目里查一下</div>
+          <div class="after stream" style="padding-top: 10px">
+            <div class="starting"><svg class="ic s14 spin" data-i="loader-circle"></svg>正在启动 开发助手…</div>
+          </div>
+        </div>
+        <button class="btn outline" type="button" id="replay" style="align-self: flex-start"><svg class="ic s14" data-i="play"></svg>播放展开</button>
+        <figcaption>
+          <div class="state">发送 → 展开 · 启动中</div>
+          <ol>
+            <li><span>窗口从指令条的位置向下长高，内容不跳动：引用和指令原地变成第一条消息，头部随之出现。冷启动期间显示「正在启动 {智能体名}…」。macOS 用 <code>setBounds(…, animate)</code>；Windows/Linux 第一版直接切换（逐帧动画等体验后再评估）。开启减少动态效果时各平台都直接切换。</span></li>
+          </ol>
+        </figcaption>
+      </figure>
+
+      <!-- running -->
+      <figure class="board">
+        <div class="win dlg">
+          <div class="hdr">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="who"><span class="av">🛠️</span><span class="nm">开发助手</span><span class="ss">PostList 报错排查</span></div>
+            <div class="ctl">
+              <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+              <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button>
+              <button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+            </div>
+          </div>
+          <div class="stream">
+            <div class="ask anchor-m">
+              <div class="t">这个报错是什么原因？在项目里查一下</div>
+              <div class="src"><div class="q mono one"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div><span class="meta">Terminal · 3 行<svg class="ic s12" data-i="chevron-down"></svg></span></div>
+              <i class="m">1</i>
+            </div>
+            <div class="hair" style="height: 1px; background: var(--border-subtle)"></div>
+            <p>我先在项目里定位这个组件和它的数据来源。</p>
+            <div class="steps anchor-m">
+              <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Grep</span><span class="target">"PostList" · src/</span><svg class="ic s14 chev" data-i="chevron-right"></svg></div>
+              <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Read</span><span class="target">src/components/PostList.tsx</span><svg class="ic s14 chev" data-i="chevron-right"></svg></div>
+              <div class="step"><span class="st run"><svg class="ic s14 spin" data-i="loader-circle"></svg></span><span class="tool">Read</span><span class="target">src/lib/posts.ts</span><span class="lbl">运行中</span></div>
+              <i class="m">2</i>
+            </div>
+            <p class="caret"><span class="code">PostList</span> 在第 18 行直接对 <span class="code">posts</span> 调用了 <span class="code">.map</span>，而 <span class="code">getPosts()</span> 在请求失败时返回 <span class="code">undefined</span></p>
+          </div>
+          <div class="composer anchor-m">
+            <span class="ph">补充说明，将在当前步骤后送达</span>
+            <span class="ws"><svg class="ic s12" data-i="folder"></svg>my-blog</span>
+            <button class="send" aria-label="停止"><span class="sq"></span></button>
+            <i class="m">3</i>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">运行中</div>
+          <ol>
+            <li><i class="m">1</i><span>第一条消息不是气泡：指令作标题，引用带 <code>--reference</code> 底色，后面是来源应用和展开按钮。这样整窗背景保持统一。</span></li>
+            <li><i class="m">2</i><span>工具调用是紧凑的步骤行（完成 success / 运行中 info / 待批准 warning / 失败 error），点开看输入输出，复用 AgentToolCallCard 的展示逻辑。</span></li>
+            <li><i class="m">3</i><span>运行中可以输入，消息在当前步骤后送达；输入框为空时，按钮是停止（Esc 同样）。右侧只读显示工作目录。</span></li>
+          </ol>
+        </figcaption>
+      </figure>
+
+      <!-- approval -->
+      <figure class="board">
+        <div class="win dlg">
+          <div class="hdr">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="who"><span class="av">📒</span><span class="nm">单词本</span><span class="ss">加入单词本</span><span class="pill warn anchor-m"><svg class="ic s12" data-i="hourglass"></svg>等待批准<i class="m">1</i></span></div>
+            <div class="ctl">
+              <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+              <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button>
+              <button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+            </div>
+          </div>
+          <div class="stream">
+            <div class="ask">
+              <div class="t"><svg class="ic s14 act-ic" data-i="book-a"></svg>加入单词本</div>
+              <div class="src"><div class="q one"><mark>The ubiquity of smartphones has made ephemeral content the default; feeds juxtapose news with noise…</mark></div><span class="meta">Chrome · 152 字<svg class="ic s12" data-i="chevron-down"></svg></span></div>
+            </div>
+            <div style="height: 1px; background: var(--border-subtle)"></div>
+            <div class="steps">
+              <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Read</span><span class="target">vocabulary.md</span><svg class="ic s14 chev" data-i="chevron-right"></svg></div>
+            </div>
+            <p>找到 3 个生词：ubiquity、ephemeral、juxtapose。下面把它们追加到单词本。</p>
+            <div class="steps">
+              <div class="step"><span class="st wait"><svg class="ic s14" data-i="hourglass"></svg></span><span class="tool">Edit</span><span class="target">vocabulary.md</span><span class="lbl">等待批准</span></div>
+            </div>
+          </div>
+          <div class="approval anchor-m">
+            <div class="ap-head"><svg class="ic" data-i="file-pen"></svg>Edit <span class="sub">vocabulary.md</span></div>
+            <div class="diff">
+              <div class="ln ctx">&nbsp;&nbsp;## 2026-10-27</div>
+              <div class="ln add">+ - **ubiquity** /juːˈbɪkwəti/ n. 无处不在</div>
+              <div class="ln add">+ - **ephemeral** /ɪˈfemərəl/ adj. 短暂的</div>
+              <div class="ln add">+ - **juxtapose** /ˌdʒʌkstəˈpoʊz/ v. 并列，并置</div>
+            </div>
+            <div class="reason">拒绝原因（可选）<div class="ta">告诉智能体可以改用什么方案</div></div>
+            <div class="ap-btns"><span class="btn outline">拒绝 <span class="kbd">Esc</span></span><span class="btn emph">允许 <span class="kbd">Enter</span></span></div>
+            <i class="m">2</i>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">待批准 <span class="tag">智能体动作</span></div>
+          <ol>
+            <li><i class="m">1</i><span>头部显示「等待批准」。窗口失焦时收成胶囊（开启自动关闭时），胶囊同样显示「等你批准」，所以不会被藏起来。</span></li>
+            <li><i class="m">2</i><span>审批卡片替换输入区，复用主窗口的 PermissionRequestComposer：预览、拒绝原因、Esc 拒绝 / Enter 允许。</span></li>
+          </ol>
+        </figcaption>
+      </figure>
+
+      <!-- done -->
+      <figure class="board">
+        <div class="win dlg">
+          <div class="hdr">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="who"><span class="av">📒</span><span class="nm">单词本</span><span class="ss">加入单词本</span></div>
+            <div class="ctl">
+              <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+              <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button>
+              <button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+            </div>
+          </div>
+          <div class="stream">
+            <div class="ask">
+              <div class="t"><svg class="ic s14 act-ic" data-i="book-a"></svg>加入单词本</div>
+              <div class="src"><div class="q one"><mark>The ubiquity of smartphones has made ephemeral content the default; feeds juxtapose news with noise…</mark></div><span class="meta">Chrome · 152 字<svg class="ic s12" data-i="chevron-down"></svg></span></div>
+            </div>
+            <div style="height: 1px; background: var(--border-subtle)"></div>
+            <div class="steps">
+              <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Read</span><span class="target">vocabulary.md</span><svg class="ic s14 chev" data-i="chevron-right"></svg></div>
+              <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Edit</span><span class="target">vocabulary.md · +3</span><svg class="ic s14 chev" data-i="chevron-right"></svg></div>
+            </div>
+            <p>已加入单词本（<span class="code">vocabulary.md</span>）：</p>
+            <ul>
+              <li><b>ubiquity</b> /juːˈbɪkwəti/ n. 无处不在</li>
+              <li><b>ephemeral</b> /ɪˈfemərəl/ adj. 短暂的</li>
+              <li><b>juxtapose</b> /ˌdʒʌkstəˈpoʊz/ v. 并列，并置</li>
+            </ul>
+            <div class="msg-actions anchor-m">
+              <button class="gbtn icon" aria-label="复制"><svg class="ic s14" data-i="copy"></svg></button>
+              <button class="gbtn"><svg class="ic s14" data-i="external-link"></svg>在主窗口继续</button>
+              <i class="m inline">1</i>
+            </div>
+          </div>
+          <div class="composer">
+            <span class="ph">继续追问…</span>
+            <span class="ws"><svg class="ic s12" data-i="folder"></svg>English</span>
+            <button class="send" disabled aria-label="发送"><svg class="ic s14" data-i="arrow-up"></svg></button>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">完成</div>
+          <ol>
+            <li><i class="m">1</i><span>最后一条回复下方：复制、在主窗口继续（ghost 按钮，不抢内容）。直接在下方追问，就是同一会话的下一轮。失焦（开启自动关闭时）直接关闭，不收成胶囊。</span></li>
+          </ol>
+        </figcaption>
+      </figure>
+
+      <!-- error -->
+      <figure class="board">
+        <div class="win dlg" style="height: 460px">
+          <div class="hdr">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="who"><span class="av">🛠️</span><span class="nm">开发助手</span><span class="ss">PostList 报错排查</span></div>
+            <div class="ctl">
+              <button class="ib" aria-label="在主窗口打开"><svg class="ic s14" data-i="external-link"></svg></button>
+              <button class="ib" aria-label="置顶"><svg class="ic s14" data-i="pin"></svg></button>
+              <button class="ib" aria-label="窗口透明度"><svg class="ic s14" data-i="droplet"></svg></button>
+            </div>
+          </div>
+          <div class="stream">
+            <div class="ask">
+              <div class="t">这个报错是什么原因？在项目里查一下</div>
+              <div class="src"><div class="q mono one"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div><span class="meta">Terminal · 3 行<svg class="ic s12" data-i="chevron-down"></svg></span></div>
+            </div>
+            <div style="height: 1px; background: var(--border-subtle)"></div>
+            <div class="errcard anchor-m">
+              <div class="title"><svg class="ic s14" data-i="circle-alert"></svg>Claude Code 尚未安装</div>
+              <div>「开发助手」使用 Claude Code 运行时，安装完成后点重试即可继续。</div>
+              <div class="row"><span class="btn sm on-err">前往安装</span><span class="btn sm on-err"><svg class="ic s14" data-i="refresh-cw"></svg>重试</span></div>
+              <i class="m">1</i>
+            </div>
+          </div>
+          <div class="composer">
+            <span class="ph">继续追问…</span>
+            <span class="ws"><svg class="ic s12" data-i="folder"></svg>my-blog</span>
+            <button class="send" disabled aria-label="发送"><svg class="ic s14" data-i="arrow-up"></svg></button>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">错误</div>
+          <ol><li><i class="m">1</i><span>错误出现在消息流里（error-subtle）。已知原因给出对应操作：未配置模型 →「去配置」，运行时缺失 →「前往安装」，绑定的智能体被删除 →「编辑动作」；其他错误显示原始信息，带「重试」「在主窗口打开」。</span></li></ol>
+        </figcaption>
+      </figure>
+
+      <!-- no agents -->
+      <figure class="board">
+        <div class="win bar">
+          <div class="bar-q">
+            <div class="traffic no-min" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="q mono one"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div>
+            <span class="meta">Terminal · 3 行</span>
+          </div>
+          <div class="bar-in msg"><svg class="ic" data-i="bot"></svg>还没有智能体。创建一个后，就能把选中的文字交给它处理。<i class="m">1</i></div>
+          <div class="bar-foot">
+            <span class="chip off"><svg class="ic s14" data-i="bot"></svg>选择智能体</span>
+            <span class="grow"></span>
+            <span class="btn emph"><svg class="ic s14" data-i="plus"></svg>创建智能体</span>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">没有智能体 · 指令条</div>
+          <ol><li><i class="m">1</i><span>输入行换成一句说明，右下角是「创建智能体」，点击后在主窗口打开创建流程。正常情况下内置的 Cherry Assistant 一直存在，只有它被删除时才会出现这个状态。</span></li></ol>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- capsule -->
+  <section class="sec" id="capsule">
+    <div class="sec-head"><h2>胶囊</h2><p>最小化或失焦后，窗口收成屏幕右下角的胶囊 · 各平台统一</p></div>
+    <div class="boards">
+      <figure class="board">
+        <div class="desk">
+          <div class="menubar"><b>Chrome</b><span>文件</span><span>编辑</span><span>视图</span><span class="grow"></span><span>10:24</span></div>
+          <div class="appwin" style="height: 290px">
+            <div class="ab">The Attention Economy</div>
+            <div class="ac">Platforms compete for every idle second, and the cost is paid in focus. <mark>Serendipity</mark> becomes rarer when every feed is tuned to keep you scrolling…</div>
+          </div>
+          <div class="workarea"><span>可用区域底边</span></div>
+          <div class="dockbar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="capsule-col anchor-m">
+            <div class="capsule"><span class="av sm">🍒</span><span class="nm">Cherry Assistant</span><span class="s ok"><svg class="ic s12" data-i="check"></svg>完成</span></div>
+            <div class="capsule"><span class="av sm">🛠️</span><span class="nm">开发助手</span><span class="s"><svg class="ic s12 spin" data-i="loader-circle"></svg>第 3 步</span></div>
+            <div class="capsule warn"><span class="av sm">📒</span><span class="nm">单词本</span><span class="s warn"><svg class="ic s12" data-i="hourglass"></svg>等你批准</span></div>
+            <i class="m">1</i>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">胶囊堆叠</div>
+          <ol><li><i class="m">1</i><span>各平台统一放在窗口所在显示器的右下角，按可用区域（<code>workArea</code>）定位，自动避开程序坞和任务栏。从角落向上堆叠：离角落最近的是等你批准，往上依次是运行中、完成 / 出错，同类按收起时间排列。右上角留给系统通知，也不挡最大化窗口的关闭按钮。胶囊和划词窗口一样置顶，全屏应用上也能看到。点击胶囊，窗口按原来的位置和大小恢复，胶囊消失。</span></li></ol>
+        </figcaption>
+      </figure>
+
+      <figure class="board">
+        <div class="cap-grid">
+          <div class="capsule"><span class="av sm">🛠️</span><span class="nm">开发助手</span><span class="s"><svg class="ic s12 spin" data-i="loader-circle"></svg>第 3 步</span></div>
+          <div class="lbl"><b>运行中</b>显示当前是第几步；没有工具调用时显示「运行中」。</div>
+          <div class="capsule warn"><span class="av sm">📒</span><span class="nm">单词本</span><span class="s warn"><svg class="ic s12" data-i="hourglass"></svg>等你批准</span></div>
+          <div class="lbl"><b>等你批准</b>warning 底色，排在离角落最近的位置。不能在胶囊上直接批准：点开窗口看清内容再决定。</div>
+          <div class="capsule"><span class="av sm">🍒</span><span class="nm">Cherry Assistant</span><span class="s ok"><svg class="ic s12" data-i="check"></svg>完成</span></div>
+          <div class="lbl"><b>完成</b>一直保留，直到点开查看或手动关掉，因为里面有还没看的结果。</div>
+          <div class="capsule"><span class="av sm">🛠️</span><span class="nm">开发助手</span><span class="s err"><svg class="ic s12" data-i="circle-alert"></svg>出错</span></div>
+          <div class="lbl"><b>出错</b>同样保留，点开看错误和处理办法。</div>
+          <div class="capsule"><span class="av sm">📒</span><span class="nm">单词本</span><span class="title">加入单词本</span><span class="s warn"><svg class="ic s12" data-i="hourglass"></svg>等你批准</span><span class="x" aria-label="关闭"><svg class="ic s12" data-i="x"></svg></span></div>
+          <div class="lbl"><b>悬停</b>多显示会话名，出现 ✕。点 ✕ 等同于关闭窗口：不停止智能体，在主应用里可见。</div>
+          <div class="capsule more">+3</div>
+          <div class="lbl"><b>超过 5 个</b>其余折叠成「+N」，放在堆叠的最上面，点击展开全部。</div>
+        </div>
+        <figcaption><div class="state">胶囊的状态</div></figcaption>
+      </figure>
+
+      <figure class="board">
+        <div class="demo" id="collapse-demo">
+          <div class="win mini">
+            <div class="hdr"><div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div></div>
+            <div class="bars"><i style="width: 70%"></i><i style="width: 90%"></i><i style="width: 55%"></i><i style="width: 80%"></i><i style="width: 40%"></i></div>
+          </div>
+          <div class="cap-slot"><div class="capsule"><span class="av sm">🛠️</span><span class="nm">开发助手</span><span class="s"><svg class="ic s12 spin" data-i="loader-circle"></svg>第 3 步</span></div></div>
+        </div>
+        <button class="btn outline" type="button" id="collapse-btn" style="align-self: flex-start"><svg class="ic s14" data-i="play"></svg>播放收起</button>
+        <figcaption>
+          <div class="state">收起动效</div>
+          <ol><li><span>窗口朝右下角的胶囊位置缩小并淡出，胶囊随后出现，让用户知道窗口去了哪里。恢复时反向播放。开启减少动态效果时直接切换。</span></li></ol>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- background -->
+  <section class="sec" id="background">
+    <div class="sec-head"><h2>关窗与主应用</h2><p>关窗不停止 · 会话持久化保存，在主应用可见</p></div>
+    <div class="boards">
+      <figure class="board">
+        <div class="mainapp">
+          <div class="side">
+            <div class="grp"><span class="av sm">📒</span>单词本</div>
+            <div class="srow anchor-m"><span class="t">加入单词本：ubiquity 等 3 个词</span><span class="pill warn"><svg class="ic s12" data-i="hourglass"></svg>等待批准</span><i class="m">1</i></div>
+            <div class="srow"><span class="t">加入单词本：serendipity</span></div>
+            <div class="grp"><span class="av sm">🛠️</span>开发助手</div>
+            <div class="srow active"><span class="t">PostList 报错排查</span><svg class="ic s14 spin" data-i="loader-circle" style="color: var(--muted-foreground)"></svg></div>
+            <div class="srow"><span class="t">升级 Next.js 15</span><span class="dot" aria-label="已完成未读"></span></div>
+          </div>
+          <div class="main">
+            <div class="mhead"><span class="av sm">🛠️</span>PostList 报错排查</div>
+            <div class="mbody">
+              <div class="ask">
+                <div class="t">这个报错是什么原因？在项目里查一下</div>
+                <div class="q mono one"><mark>TypeError: Cannot read properties of undefined (reading 'map')</mark></div>
+              </div>
+              <div class="steps">
+                <div class="step"><span class="st ok"><svg class="ic s14" data-i="check"></svg></span><span class="tool">Grep</span><span class="target">"PostList" · src/</span></div>
+                <div class="step"><span class="st run"><svg class="ic s14 spin" data-i="loader-circle"></svg></span><span class="tool">Read</span><span class="target">src/lib/posts.ts</span><span class="lbl">运行中</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <div class="state">主应用 · 智能体页（示意，以现有 SessionItem 实际样式为准）</div>
+          <ol><li><i class="m">1</i><span>窗口关掉以后，会话照常出现在列表里，并显示运行中 / 等待批准状态（列表已有这些标记），打开即可审批或继续。划词产生的会话和普通会话没有区别。</span></li></ol>
+        </figcaption>
+      </figure>
+      <figure class="board" style="max-width: 400px">
+        <figcaption>
+          <div class="state">收起、关闭、停止</div>
+          <ul>
+            <li>• <b>收起</b>（黄灯 / 最小化 / 失焦）：窗口变成胶囊，智能体继续。</li>
+            <li>• <b>关闭</b>（红灯 / 胶囊上的 ✕）：窗口和胶囊都消失，智能体继续，在主应用里可见。</li>
+            <li>• <b>停止</b>（停止按钮 / 运行中按 Esc）：中止这一轮。只有这个操作会让智能体停下。</li>
+            <li>• 还没发送就关闭：不会创建会话，草稿丢弃。</li>
+            <li>• 在主窗口打开：主窗口选中这个会话，迷你窗口和它的胶囊一起关闭，未发送的草稿带过去。</li>
+          </ul>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- settings -->
+  <section class="sec" id="settings">
+    <div class="sec-head"><h2>设置</h2><p>划词助手设置页 → 功能</p></div>
+    <div class="boards">
+      <figure class="board">
+        <div class="alist">
+          <div class="ah">已启用（拖动排序，拖到下方列表即停用）</div>
+          <div class="arow"><svg class="ic s14 grip" data-i="grip-vertical"></svg><svg class="ic s14" data-i="languages"></svg><span class="t">翻译</span></div>
+          <div class="arow"><svg class="ic s14 grip" data-i="grip-vertical"></svg><svg class="ic s14" data-i="search"></svg><span class="t">搜索 <span class="inline-info">Google</span></span><button class="ib"><svg class="ic s14" data-i="settings-2"></svg></button></div>
+          <div class="arow anchor-m"><svg class="ic s14 grip" data-i="grip-vertical"></svg><svg class="ic s14" data-i="bot"></svg><span class="t">问智能体 <span class="inline-info">🍒 Cherry Assistant</span></span><button class="ib"><svg class="ic s14" data-i="settings-2"></svg></button><i class="m">1</i></div>
+          <div class="arow anchor-m"><svg class="ic s14 grip" data-i="grip-vertical"></svg><svg class="ic s14" data-i="book-a"></svg><span class="t">加入单词本 <span class="inline-info">📒 单词本</span></span><button class="ib"><svg class="ic s14" data-i="pencil"></svg></button><button class="ib"><svg class="ic s14" data-i="trash-2"></svg></button><i class="m">2</i></div>
+        </div>
+        <figcaption>
+          <div class="state">功能列表</div>
+          <ol>
+            <li><i class="m">1</i><span>「问智能体」照「搜索」的样式：名称旁显示当前默认智能体，Settings2 按钮打开设置弹窗。</span></li>
+            <li><i class="m">2</i><span>绑定了智能体的自定义动作同样在名称旁显示智能体名；编辑、删除按钮不变。</span></li>
+          </ol>
+        </figcaption>
+      </figure>
+      <figure class="board">
+        <div class="sdlg">
+          <div class="dh">问智能体设置</div>
+          <div class="db">
+            <div class="field"><label>默认智能体</label><div class="input"><span class="av sm">🍒</span><span class="grow">Cherry Assistant</span><svg class="ic s14" data-i="chevron-down"></svg></div></div>
+            <div class="field"><label>默认工作目录</label><div class="input"><svg class="ic s14" data-i="folder"></svg><span class="grow">不使用工作目录</span><svg class="ic s14" data-i="chevron-down"></svg></div></div>
+            <div class="note">每次使用时都可以在指令条里临时更换，这里只决定默认值。</div>
+          </div>
+          <div class="df"><span class="btn outline">取消</span><span class="btn emph">确定</span></div>
+        </div>
+        <figcaption><div class="state">问智能体设置</div></figcaption>
+      </figure>
+      <figure class="board">
+        <div class="sdlg">
+          <div class="dh">编辑自定义功能</div>
+          <div class="db">
+            <div class="field"><label>名称</label><div class="input"><span class="grow">加入单词本</span></div></div>
+            <div class="field"><label>图标</label><div class="input"><svg class="ic s14" data-i="book-a" style="color: var(--foreground)"></svg><span class="grow">book-a</span></div></div>
+            <div class="field anchor-m"><label>模型 <svg class="ic s14" data-i="info"></svg></label><div class="radios"><span>默认模型</span><span>使用助手</span><span class="on">使用智能体</span></div><i class="m">1</i></div>
+            <div class="field"><label>选择智能体</label><div class="input"><span class="av sm">📒</span><span class="grow">单词本</span><svg class="ic s14" data-i="chevron-down"></svg></div></div>
+            <div class="field"><label>工作目录</label><div class="input"><svg class="ic s14" data-i="folder"></svg><span class="grow">English</span><svg class="ic s14" data-i="chevron-down"></svg></div></div>
+            <div class="infobar anchor-m"><svg class="ic s14" data-i="info"></svg><span>智能体会新建会话并可能调用工具，会话保存在该智能体的会话列表中。</span><i class="m">2</i></div>
+            <div class="field"><label>用户提示词 (Prompt)</label><div class="textarea">把下面文本里的生词加入单词本，并给出音标和释义：<br>{{text}}</div></div>
+          </div>
+          <div class="df"><span class="btn outline">取消</span><span class="btn emph">确定</span></div>
+        </div>
+        <figcaption>
+          <div class="state">自定义功能编辑弹窗</div>
+          <ol>
+            <li><i class="m">1</i><span>「模型」单选新增「使用智能体」。选中后，「选择助手」换成「选择智能体」+「工作目录」。</span></li>
+            <li><i class="m">2</i><span>说明和助手动作的区别：会保存会话、可能调用工具。提示词规则不变（<code>{{text}}</code> 占位符）。</span></li>
+          </ol>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- rules -->
+  <section class="sec" id="rules">
+    <div class="sec-head"><h2>规则速查</h2><p>详细说明见 prd.md 第 6 节</p></div>
+    <table class="rules">
+      <thead><tr><th>状态</th><th>失焦（开启自动关闭时）</th><th>黄灯 / 最小化</th><th>Esc</th><th>在主窗口打开</th><th>新的划词触发</th></tr></thead>
+      <tbody>
+        <tr><td>待输入（有草稿）</td><td class="hl">不关闭</td><td>不可用</td><td>不响应</td><td>不可用</td><td>另开窗口</td></tr>
+        <tr><td>待输入（空）</td><td>关闭</td><td>不可用</td><td>关闭</td><td>不可用</td><td>复用这个窗口</td></tr>
+        <tr><td>启动中 / 运行中</td><td class="hl">收成胶囊</td><td>收成胶囊</td><td>停止</td><td>可用</td><td>另开窗口</td></tr>
+        <tr><td>待批准</td><td class="hl">收成胶囊</td><td>收成胶囊</td><td>拒绝（审批卡片）</td><td>可用</td><td>另开窗口</td></tr>
+        <tr><td>完成 / 错误</td><td>关闭</td><td>收成胶囊</td><td>关闭</td><td>可用</td><td>复用这个窗口</td></tr>
+        <tr><td>已收成胶囊</td><td>—</td><td>—</td><td>—</td><td>恢复后可用</td><td>不复用</td></tr>
+      </tbody>
+    </table>
+    <div class="spec-grid">
+      <div class="spec"><b>尺寸</b>指令条 560 宽，高度随内容（约 150）。对话窗口默认 560×620，最小 420×480；「记住窗口大小」开启时，单独记住对话窗口的尺寸。</div>
+      <div class="spec"><b>沿用的窗口能力</b>置顶、自动置顶、透明度、位置跟随工具栏，和现有结果窗口一致。指令条展开时，顶边位置不变，向下长高。</div>
+      <div class="spec"><b>复用的组件</b>AgentSelector、WorkspaceSelector、AgentToolCallCard、PermissionRequestComposer、消息渲染。能否嵌进独立窗口由 Spec 评估（见 #20207）。</div>
+      <div class="spec"><b>Token</b>整窗 popover；引用用 reference；待批准用 warning-subtle；错误用 error-subtle；主操作按钮用 emphasis（中性色），不用品牌绿。</div>
+    </div>
+  </section>
+
+</div>
+<script>
+const ICONS = {"languages":"<path d=\"m5 8 6 6\"/><path d=\"m4 14 6-6 2-3\"/><path d=\"M2 5h12\"/><path d=\"M7 2h1\"/><path d=\"m22 22-5-10-5 10\"/><path d=\"M14 18h6\"/>","file-question-mark":"<path d=\"M12 17h.01\"/><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z\"/><path d=\"M9.1 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3\"/>","scan-text":"<path d=\"M3 7V5a2 2 0 0 1 2-2h2\"/><path d=\"M17 3h2a2 2 0 0 1 2 2v2\"/><path d=\"M21 17v2a2 2 0 0 1-2 2h-2\"/><path d=\"M7 21H5a2 2 0 0 1-2-2v-2\"/><path d=\"M7 8h8\"/><path d=\"M7 12h10\"/><path d=\"M7 16h6\"/>","search":"<path d=\"m21 21-4.34-4.34\"/><circle cx=\"11\" cy=\"11\" r=\"8\"/>","clipboard-copy":"<rect width=\"8\" height=\"4\" x=\"8\" y=\"2\" rx=\"1\" ry=\"1\"/><path d=\"M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2\"/><path d=\"M16 4h2a2 2 0 0 1 2 2v4\"/><path d=\"M21 14H11\"/><path d=\"m15 10-4 4 4 4\"/>","bot":"<path d=\"M12 8V4H8\"/><rect width=\"16\" height=\"12\" x=\"4\" y=\"8\" rx=\"2\"/><path d=\"M2 14h2\"/><path d=\"M20 14h2\"/><path d=\"M15 13v2\"/><path d=\"M9 13v2\"/>","book-a":"<path d=\"M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20\"/><path d=\"m8 13 4-7 4 7\"/><path d=\"M9.1 11h5.7\"/>","external-link":"<path d=\"M15 3h6v6\"/><path d=\"M10 14 21 3\"/><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/>","pin":"<path d=\"M12 17v5\"/><path d=\"M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z\"/>","droplet":"<path d=\"M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z\"/>","minus":"<path d=\"M5 12h14\"/>","x":"<path d=\"M18 6 6 18\"/><path d=\"m6 6 12 12\"/>","chevron-down":"<path d=\"m6 9 6 6 6-6\"/>","folder":"<path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/>","arrow-up":"<path d=\"m5 12 7-7 7 7\"/><path d=\"M12 19V5\"/>","loader-circle":"<path d=\"M21 12a9 9 0 1 1-6.219-8.56\"/>","play":"<polygon points=\"6 3 20 12 6 21 6 3\"/>","check":"<path d=\"M20 6 9 17l-5-5\"/>","chevron-right":"<path d=\"m9 18 6-6-6-6\"/>","hourglass":"<path d=\"M5 22h14\"/><path d=\"M5 2h14\"/><path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\"/><path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\"/>","file-pen":"<path d=\"M12.5 22H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v9.5\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/><path d=\"M13.378 15.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z\"/>","copy":"<rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\"/><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"/>","circle-alert":"<circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" x2=\"12\" y1=\"8\" y2=\"12\"/><line x1=\"12\" x2=\"12.01\" y1=\"16\" y2=\"16\"/>","refresh-cw":"<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\"/><path d=\"M8 16H3v5\"/>","plus":"<path d=\"M5 12h14\"/><path d=\"M12 5v14\"/>","grip-vertical":"<circle cx=\"9\" cy=\"12\" r=\"1\"/><circle cx=\"9\" cy=\"5\" r=\"1\"/><circle cx=\"9\" cy=\"19\" r=\"1\"/><circle cx=\"15\" cy=\"12\" r=\"1\"/><circle cx=\"15\" cy=\"5\" r=\"1\"/><circle cx=\"15\" cy=\"19\" r=\"1\"/>","settings-2":"<path d=\"M14 17H5\"/><path d=\"M19 7h-9\"/><circle cx=\"17\" cy=\"17\" r=\"3\"/><circle cx=\"7\" cy=\"7\" r=\"3\"/>","pencil":"<path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\"/><path d=\"m15 5 4 4\"/>","trash-2":"<path d=\"M3 6h18\"/><path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\"/><path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\"/><line x1=\"10\" x2=\"10\" y1=\"11\" y2=\"17\"/><line x1=\"14\" x2=\"14\" y1=\"11\" y2=\"17\"/>","info":"<circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 16v-4\"/><path d=\"M12 8h.01\"/>"};
+document.querySelectorAll('svg[data-i]').forEach((el) => {
+  const body = ICONS[el.dataset.i];
+  if (!body) return;
+  el.setAttribute('viewBox', '0 0 24 24');
+  el.setAttribute('fill', 'none');
+  el.setAttribute('stroke', 'currentColor');
+  el.setAttribute('stroke-width', '2');
+  el.setAttribute('stroke-linecap', 'round');
+  el.setAttribute('stroke-linejoin', 'round');
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = body;
+});
+
+const morph = document.getElementById('morph');
+document.getElementById('replay').addEventListener('click', () => {
+  morph.classList.remove('open');
+  void morph.offsetHeight;
+  setTimeout(() => morph.classList.add('open'), 150);
+});
+const demo = document.getElementById('collapse-demo');
+document.getElementById('collapse-btn').addEventListener('click', () => {
+  demo.classList.remove('collapsed');
+  void demo.offsetHeight;
+  setTimeout(() => demo.classList.add('collapsed'), 150);
+});
+
+const media = window.matchMedia('(prefers-color-scheme: dark)');
+let mode = 'system';
+try { mode = localStorage.getItem('selection-agent-mock-theme') || 'system'; } catch {}
+function applyTheme() {
+  const dark = mode === 'dark' || (mode === 'system' && media.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.querySelectorAll('[data-theme-btn]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeBtn === mode)));
+}
+document.querySelectorAll('[data-theme-btn]').forEach((b) => b.addEventListener('click', () => {
+  mode = b.dataset.themeBtn;
+  try { localStorage.setItem('selection-agent-mock-theme', mode); } catch {}
+  applyTheme();
+}));
+media.addEventListener('change', applyTheme);
+applyTheme();
+</script>
+</body>
+</html>
